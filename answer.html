@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>在线答题 · 国际课程组卷系统</title>
+  <link rel="stylesheet" href="css/style.css?v=20260928c">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>
+          <path d="M14 4v5h5"/><path d="M8.5 13h7M8.5 16.5h5"/>
+        </svg>
+      </span>
+      在线答题
+      <span class="brand-sub">成都智慧象留学 · 国际课程组卷系统</span>
+    </div>
+    <div class="spacer"></div>
+  </header>
+
+  <main class="page" id="main">
+    <div class="card" style="max-width:440px;margin:40px auto;">
+      <div class="section-head"><h2>进入考试</h2></div>
+      <p class="f-hint" style="margin-bottom:14px;">请输入老师提供的答题码与你的姓名（须在考生名单中）。</p>
+      <div class="form-item">
+        <label>答题码 <span class="req">*</span></label>
+        <input type="text" id="in-code" placeholder="6 位答题码" style="text-transform:uppercase;font-family:var(--f-num);letter-spacing:3px;">
+      </div>
+      <div class="form-item" style="margin-top:12px;">
+        <label>姓名 <span class="req">*</span></label>
+        <input type="text" id="in-name" placeholder="与老师登记的姓名一致">
+      </div>
+      <div class="login-error" id="in-error" role="alert">答题码不正确</div>
+      <button class="btn btn-primary btn-lg" id="btn-verify" style="width:100%;margin-top:18px;">进入考试</button>
+    </div>
+  </main>
+
+  <footer class="site-footer">成都智慧象留学 · 国际课程组卷系统</footer>
+
+  <script src="js/common.js?v=20260928c"></script>
+  <script src="js/mock-data.js?v=20260928c"></script>
+  <script src="js/api.js?v=20260928c"></script>
+  <script>
+    (function () {
+      'use strict';
+      var ZJ = window.ZJ;
+      var Data = window.ZJ_Data;
+      ZJ.injectWatermark();
+
+      var ctx = null; // {examId, code, candidateId, exam, questions}
+      var answers = {};
+      var params = new URLSearchParams(location.search);
+      var preCode = params.get('code') || '';
+      if (preCode) { document.getElementById('in-code').value = preCode.toUpperCase(); }
+
+      function setErr(msg) {
+        var box = document.getElementById('in-error');
+        box.textContent = msg;
+        box.classList.toggle('show', !!msg);
+      }
+
+      document.getElementById('btn-verify').addEventListener('click', function () {
+        var code = document.getElementById('in-code').value.trim().toUpperCase();
+        var name = document.getElementById('in-name').value.trim();
+        if (!code || !name) { setErr('请填写答题码与姓名'); return; }
+        setErr('');
+        var btn = this;
+        btn.disabled = true; btn.textContent = '验证中…';
+        Data.onlineVerify(params.get('examId') || 0, code, name).then(function (r) {
+          ctx = { examId: Number(params.get('examId')), code: code, candidateId: r.candidateId, exam: r.exam, questions: r.questions };
+          renderExam();
+        }).catch(function (err) {
+          setErr(err.message || '进入失败');
+          btn.disabled = false; btn.textContent = '进入考试';
+        });
+      });
+
+      function optLetter(i) { return String.fromCharCode(65 + i); }
+
+      function renderExam() {
+        var multi = ctx.questions.filter(function (q) { return q.qtype === '单选题' || q.qtype === '多选题' || q.qtype === '判断题'; }).length;
+        var subj = ctx.questions.length - multi;
+        var html =
+          '<div class="entry-head">' +
+          '  <div><div class="eh-title">' + ZJ.esc(ctx.exam.name) + '</div>' +
+          '  <div class="eh-sub">' + ZJ.esc(ctx.exam.paperName) +
+          (ctx.exam.duration ? ' · 建议 ' + ctx.exam.duration + ' 分钟' : '') +
+          ' · 客观题 ' + multi + ' 题交卷后自动判分' + (subj ? '，主观题 ' + subj + ' 题待老师批阅' : '') + '</div></div>' +
+          '</div>' +
+          '<div id="q-list">';
+        ctx.questions.forEach(function (q, i) {
+          html += '<div class="q-card ans-card" data-qid="' + q.questionId + '">' +
+            '<div class="qc-head"><span class="qc-no">' + (i + 1) + '.</span>' +
+            '<div class="qc-tags"><span class="tag tag-type">' + ZJ.esc(q.qtype) + '</span>' +
+            '<span class="tag tag-subject">' + q.fullScore + ' 分</span></div></div>';
+          if (q.passage) { html += '<div class="qc-passage">' + ZJ.esc(q.passage) + '</div>'; }
+          html += '<div class="qc-stem">' + ZJ.esc(q.stem) + '</div>';
+          html += ZJ.questionAudioHtml(q);
+          html += ZJ.questionImageHtml(q);
+          if (q.qtype === '单选题' || q.qtype === '多选题') {
+            html += '<ul class="qc-options ans-options" data-qtype="' + q.qtype + '">';
+            (q.options || []).forEach(function (opt, j) {
+              html += '<li><label class="opt-label" data-qid="' + q.questionId + '" data-value="' + optLetter(j) + '">' +
+                '<input type="' + (q.qtype === '多选题' ? 'checkbox' : 'radio') + '" name="q' + q.questionId + '" value="' + optLetter(j) + '"> ' +
+                '<b>' + optLetter(j) + '.</b> ' + ZJ.esc(String(opt).replace(/^[A-Za-z][.、．]\s*/, '')) + '</label></li>';
+            });
+            html += '</ul>';
+          } else if (q.qtype === '判断题') {
+            html += '<div class="judge-pick" data-qid="' + q.questionId + '">' +
+              '<label class="chip"><input type="radio" name="q' + q.questionId + '" value="对"> 对（TRUE）</label>' +
+              '<label class="chip"><input type="radio" name="q' + q.questionId + '" value="错"> 错（FALSE）</label></div>';
+          } else if (q.qtype === '写作题') {
+            html += '<textarea class="ans-text tall" data-qid="' + q.questionId + '" placeholder="在此输入作文（将提交给老师批阅）"></textarea>';
+          } else {
+            html += '<textarea class="ans-text" data-qid="' + q.questionId + '" placeholder="在此输入答案"></textarea>';
+          }
+          html += '</div>';
+        });
+        html += '</div>' +
+          '<div class="gen-summary" style="position:sticky;bottom:12px;">' +
+          '  <span class="gs-item" id="ans-progress">已作答 0/' + ctx.questions.length + ' 题</span>' +
+          '  <span class="spacer"></span>' +
+          '  <button class="btn btn-accent btn-lg" id="btn-submit">交卷</button>' +
+          '</div>';
+        document.getElementById('main').innerHTML = html;
+        ZJ.renderMath(document.getElementById('main'));
+        bindAnswerEvents();
+      }
+
+      function bindAnswerEvents() {
+        document.querySelectorAll('.opt-label input').forEach(function (input) {
+          input.addEventListener('change', function () {
+            var label = input.closest('.opt-label');
+            var qid = label.dataset.qid;
+            var qtype = label.closest('.ans-options').dataset.qtype;
+            if (qtype === '多选题') {
+              var picks = [];
+              document.querySelectorAll('.opt-label[data-qid="' + qid + '"] input:checked').forEach(function (cb) {
+                picks.push(cb.value);
+              });
+              answers[qid] = picks.join(',');
+            } else {
+              answers[qid] = input.value;
+            }
+            updateProgress();
+          });
+        });
+        document.querySelectorAll('.judge-pick input').forEach(function (input) {
+          input.addEventListener('change', function () {
+            answers[input.closest('.judge-pick').dataset.qid] = input.value;
+            updateProgress();
+          });
+        });
+        document.querySelectorAll('.ans-text').forEach(function (ta) {
+          ta.addEventListener('input', function () {
+            answers[ta.dataset.qid] = ta.value;
+            updateProgress();
+          });
+        });
+        document.getElementById('btn-submit').addEventListener('click', function () {
+          var answered = Object.keys(answers).filter(function (k) { return String(answers[k]).trim() !== ''; }).length;
+          ZJ.confirm('确认交卷', '已作答 ' + answered + '/' + ctx.questions.length + ' 题。交卷后客观题立即判分，且不能修改。确定交卷吗？', '交卷').then(function (ok) {
+            if (!ok) { return; }
+            var btn = document.getElementById('btn-submit');
+            btn.disabled = true; btn.textContent = '提交中…';
+            Data.onlineSubmit(ctx.examId, ctx.code, ctx.candidateId, answers).then(function (r) {
+              renderResult(r);
+            }).catch(function (err) {
+              ZJ.toast(err.message, true);
+              btn.disabled = false; btn.textContent = '交卷';
+            });
+          });
+        });
+      }
+
+      function updateProgress() {
+        var n = Object.keys(answers).filter(function (k) { return String(answers[k]).trim() !== ''; }).length;
+        document.getElementById('ans-progress').textContent = '已作答 ' + n + '/' + ctx.questions.length + ' 题';
+      }
+
+      function renderResult(r) {
+        var html =
+          '<div class="card" style="max-width:560px;margin:30px auto;text-align:center;">' +
+          '  <div style="font-size:38px;">✅</div>' +
+          '  <h2 style="font-family:var(--f-serif);color:var(--c-navy-2);margin:10px 0 4px;">交卷成功</h2>' +
+          '  <p class="f-hint">' + ZJ.esc(r.message) + '</p>' +
+          '  <div class="stat-grid" style="grid-template-columns:1fr 1fr;margin-top:18px;">' +
+          '    <div class="stat-card" style="justify-content:center;"><div class="stat-meta">' +
+          '      <div class="stat-value" style="font-size:26px;">' + r.objectiveScore + '</div>' +
+          '      <div class="stat-label">客观题自动得分</div></div></div>' +
+          '    <div class="stat-card" style="justify-content:center;"><div class="stat-meta">' +
+          '      <div class="stat-value" style="font-size:26px;">' + r.subjectiveCount + '</div>' +
+          '      <div class="stat-label">主观题待批阅</div></div></div>' +
+          '  </div>' +
+          '  <p class="f-hint" style="margin-top:16px;">成绩将由老师核对后发布，本页面可以关闭了。</p>' +
+          '</div>';
+        document.getElementById('main').innerHTML = html;
+      }
+    })();
+  </script>
+</body>
+</html>

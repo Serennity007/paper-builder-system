@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>试卷预览 · 国际课程组卷系统</title>
+  <link rel="stylesheet" href="css/style.css?v=20260928k">
+</head>
+<body>
+
+  <div class="print-toolbar">
+    <span class="pt-title" id="pt-title">试卷预览</span>
+    <a class="btn btn-ghost" href="admin.html" id="pt-back">← 返回工作台</a>
+    <a class="btn btn-ghost" id="pt-switch" href="#">切换教师卷</a>
+    <button class="btn btn-ghost" id="pt-seal">密封线</button>
+    <button class="btn btn-accent" id="pt-word">导出 Word</button>
+    <button class="btn btn-primary" id="pt-print">打印 / 导出 PDF</button>
+  </div>
+
+  <div id="print-root">
+    <div class="empty-tip" style="padding-top:80px;">正在加载试卷…</div>
+  </div>
+
+  <script src="js/common.js?v=20260928k"></script>
+  <script src="js/mock-data.js?v=20260928k"></script>
+  <script src="js/api.js?v=20260928k"></script>
+  <script src="js/print.js?v=20260928k"></script>
+</body>
+</html>

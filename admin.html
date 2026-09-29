@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>教研工作台 · 国际课程组卷系统</title>
+  <link rel="stylesheet" href="css/style.css?v=20260928k">
+</head>
+<body>
+
+  <!-- 顶部栏 -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>
+          <path d="M14 4v5h5"/><path d="M8.5 13h7M8.5 16.5h5"/>
+        </svg>
+      </span>
+      国际课程组卷系统
+      <span class="brand-sub">教研组卷工作台</span>
+    </div>
+    <div class="spacer"></div>
+    <span class="mode-chip" id="mode-chip">…</span>
+    <div class="user-chip">
+      <span id="user-avatar"></span>
+      <span id="user-name">—</span>
+      <span class="role-badge" id="user-role">教师</span>
+      <button class="user-link" id="btn-password">修改密码</button>
+      <button class="user-link" id="btn-logout">退出</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <!-- 页签导航 -->
+    <nav class="nav-tabs" id="nav-tabs">
+      <button class="nav-tab active" data-tab="builder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        组卷台
+      </button>
+      <button class="nav-tab" data-tab="bank">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2z"/><path d="M19 17H6a2 2 0 0 0-2 2"/><path d="M9 7h6M9 11h6"/></svg>
+        题库
+      </button>
+      <button class="nav-tab" data-tab="papers">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9l-6-6z"/><path d="M14 3v6h6"/><path d="M9 13h6M9 17h6"/></svg>
+        试卷库
+      </button>
+      <button class="nav-tab" data-tab="overview">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        总览
+      </button>
+      <button class="nav-tab" data-tab="exams">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 4h6v3a3 3 0 0 1-6 0V4z"/><path d="M10 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-3"/><path d="M9 12h6M9 16h4"/></svg>
+        考试
+      </button>
+      <button class="nav-tab" data-tab="audit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        审计
+      </button>
+    </nav>
+
+    <!-- ========== 总览 ========== -->
+    <section id="tab-overview" hidden>
+      <div class="stat-grid" id="stat-cards"></div>
+
+      <div class="overview-grid" style="margin-top:18px;">
+        <div class="card">
+          <div class="section-head"><h2>题型分布</h2><span class="sec-note" id="type-dist-note"></span></div>
+          <div id="dist-type"></div>
+          <div class="section-head" style="margin-top:20px;"><h2>难度分布</h2></div>
+          <div id="dist-diff"></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>科目覆盖</h2><span class="sec-note">题量 Top 8</span></div>
+          <div id="dist-subject"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:18px;">
+        <div class="section-head">
+          <h2>最近试卷</h2>
+          <span class="sec-note">打印 / 编辑请到「试卷库」</span>
+        </div>
+        <div id="recent-papers"></div>
+      </div>
+
+      <div class="overview-grid" style="margin-top:18px;">
+        <div class="card">
+          <div class="section-head"><h2>近 8 周趋势</h2><span class="sec-note"><span style="color:var(--c-navy-2);">■</span> 录题 <span style="color:var(--c-gold-deep);">■</span> 组卷</span></div>
+          <div id="trend-bars"></div>
+        </div>
+        <div class="card">
+          <div class="section-head"><h2>高频使用题目</h2><span class="sec-note">被组卷引用 Top 5</span></div>
+          <div id="top-used"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 题库 ========== -->
+    <section id="tab-bank" hidden>
+      <div class="toolbar">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="q-search" placeholder="搜索题干 / 材料 / 知识点 / 来源">
+        </div>
+        <select id="q-subject"></select>
+        <select id="q-type">
+          <option value="全部题型">全部题型</option>
+        </select>
+        <select id="q-diff">
+          <option value="全部难度">全部难度</option>
+          <option value="1">1 · 基础</option>
+          <option value="2">2 · 较易</option>
+          <option value="3">3 · 中等</option>
+          <option value="4">4 · 较难</option>
+          <option value="5">5 · 挑战</option>
+        </select>
+        <select id="q-status">
+          <option value="全部状态">全部状态</option>
+          <option value="启用">启用</option>
+          <option value="停用">停用</option>
+        </select>
+        <span class="result-count" id="q-count"></span>
+      </div>
+
+      <div class="toolbar" style="margin-top:-4px;">
+        <button class="btn btn-primary" id="btn-add-question">＋ 新增试题</button>
+        <button class="btn btn-ghost" id="btn-import">导入 Excel</button>
+        <input type="file" id="import-file" accept=".xlsx" hidden>
+        <button class="btn btn-ghost" id="btn-template">下载模板</button>
+        <button class="btn btn-ghost" id="btn-export">导出题库</button>
+        <button class="btn btn-ghost" id="btn-knowledge-mgr">知识点大纲</button>
+        <button class="btn btn-ghost" id="btn-trash">回收站 <span class="badge" id="trash-badge" hidden>0</span></button>
+      </div>
+
+      <!-- 批量操作浮条 -->
+      <div class="batch-bar" id="batch-bar" hidden>
+        <span>已选 <b id="batch-count">0</b> 题：</span>
+        <button class="btn-mini" data-batch="enable">启用</button>
+        <button class="btn-mini" data-batch="disable">停用</button>
+        <button class="btn-mini gold" data-batch="star">收藏</button>
+        <button class="btn-mini" data-batch="unstar">取消收藏</button>
+        <button class="btn-mini danger" data-batch="delete">删除</button>
+        <button class="btn-mini" id="btn-batch-cancel">取消选择</button>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr>
+              <th style="width:34px;"><input type="checkbox" id="q-check-all" title="全选本页"></th>
+              <th style="width:104px;">科目 / 题型</th>
+              <th>题干</th>
+              <th style="width:110px;">知识点</th>
+              <th style="width:72px;">难度</th>
+              <th style="width:56px;">分值</th>
+              <th style="width:56px;">用卷</th>
+              <th style="width:150px;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="q-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========== 组卷台（双栏工作区） ========== -->
+    <section id="tab-builder">
+      <div class="ws-toolbar">
+        <input type="text" id="ws-name" placeholder="试卷名称 *（如：雅思阅读强化周测）" class="ws-name">
+        <input type="text" id="ws-line" placeholder="卷面科目行（可空）" class="ws-line">
+        <input type="number" id="ws-duration" placeholder="时长" min="0" class="ws-dur" title="建议总时长（分钟），留空自动汇总">
+        <select id="ws-variant" class="ws-var" title="卷型标记">
+          <option value="">不标记</option>
+          <option value="A卷">A 卷</option>
+          <option value="B卷">B 卷</option>
+        </select>
+        <select id="ws-status" class="ws-var" title="保存状态">
+          <option value="草稿">草稿</option>
+          <option value="定稿">定稿</option>
+        </select>
+        <span class="ws-spacer"></span>
+        <select id="g-blueprint" class="ws-var" title="组卷蓝图">
+          <option value="">选择蓝图…</option>
+        </select>
+        <button class="btn btn-ghost" id="btn-load-blueprint">载入</button>
+        <button class="btn btn-ghost" id="btn-save-blueprint">存为蓝图</button>
+      </div>
+
+      <div class="ws-grid">
+        <!-- 左：试题池 -->
+        <div class="card ws-pool">
+          <div class="section-head"><h2>试题池</h2><span class="sec-note" id="pool-target-hint"></span></div>
+          <div class="toolbar" style="margin-bottom:10px;">
+            <div class="search-box" style="max-width:150px;min-width:120px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+              <input type="text" id="pool-search" placeholder="搜索题干/知识点">
+            </div>
+            <select id="pool-subject"></select>
+            <select id="pool-type"><option value="全部题型">全部题型</option></select>
+            <select id="pool-diff">
+              <option value="全部难度">难度</option>
+              <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+              <option value="4">4</option><option value="5">5</option>
+            </select>
+          </div>
+          <div class="pool-list" id="pool-list"></div>
+        </div>
+
+        <!-- 右：试卷实体 -->
+        <div class="card ws-paper">
+          <div class="section-head"><h2>试卷</h2><span class="sec-note" id="ws-sum">0 题 · 0 分</span></div>
+          <div id="ws-stats"></div>
+          <div id="ws-sections"></div>
+          <div class="ws-actions">
+            <button class="btn btn-ghost" id="btn-ws-add-section">＋ 添加大题</button>
+            <button class="btn btn-ghost" id="btn-ws-genconfig">按配置生成</button>
+            <button class="btn btn-ghost" id="btn-ws-clear">清空</button>
+            <span class="ws-spacer"></span>
+            <button class="btn btn-accent" id="btn-ws-save">保存试卷</button>
+            <button class="btn btn-primary" id="btn-ws-print">保存并打印</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========== 试卷库 ========== -->
+    <section id="tab-papers" hidden>
+      <div class="toolbar">
+        <button class="btn btn-primary" id="btn-goto-builder">去组卷台新建试卷</button>
+        <span class="result-count" id="p-count"></span>
+      </div>
+      <div class="paper-grid" id="paper-grid"></div>
+    </section>
+
+    <!-- ========== 考试 ========== -->
+    <section id="tab-exams" hidden></section>
+
+    <!-- ========== 审计 ========== -->
+    <section id="tab-audit" hidden>
+      <div class="toolbar">
+        <select id="audit-action">
+          <option value="全部">全部动作</option>
+        </select>
+        <span class="result-count" id="audit-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead>
+            <tr><th style="width:150px;">时间</th><th style="width:100px;">操作人</th><th style="width:110px;">动作</th><th style="width:170px;">对象</th><th>详情</th></tr>
+          </thead>
+          <tbody id="audit-tbody"></tbody>
+        </table>
+      </div>
+
+      <div class="card" style="margin-top:22px;">
+        <div class="section-head"><h2>数据管理</h2><span class="sec-note">备份 = 全库 JSON 导出；恢复 = 从备份文件覆盖现有数据（账号不受影响）</span></div>
+        <div class="toolbar" style="margin-bottom:0;">
+          <button class="btn btn-primary" id="btn-backup">导出备份</button>
+          <button class="btn btn-danger" id="btn-restore">从备份恢复</button>
+          <input type="file" id="restore-file" accept=".json" hidden>
+          <span class="result-count" id="restore-note">恢复会覆盖当前题目/试卷/考试/名单/蓝图，请先导出备份</span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">成都智慧象留学 · 国际课程组卷系统（端口 8687）</footer>
+
+  <!-- 新增/编辑试题弹窗 -->
+  <div class="modal-mask" id="modal-question">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title" id="qm-title">新增试题</div>
+          <div class="m-sub">选择题需填选项与字母答案；判断题答案为「对/错」</div>
+        </div>
+        <button class="modal-close" data-close="modal-question">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <div class="form-item">
+            <label>科目 <span class="req">*</span></label>
+            <select id="e-subject"></select>
+          </div>
+          <div class="form-item">
+            <label>题型 <span class="req">*</span></label>
+            <select id="e-qtype"></select>
+          </div>
+          <div class="form-item full" id="e-new-subject-wrap" hidden>
+            <label>新科目名称</label>
+            <input type="text" id="e-new-subject" placeholder="如：IGCSE 数学（保存后自动进入科目库）">
+          </div>
+          <div class="form-item">
+            <label>难度</label>
+            <select id="e-difficulty">
+              <option value="1">1 · 基础</option>
+              <option value="2">2 · 较易</option>
+              <option value="3" selected>3 · 中等</option>
+              <option value="4">4 · 较难</option>
+              <option value="5">5 · 挑战</option>
+            </select>
+          </div>
+          <div class="form-item full">
+            <label>知识点（从大纲选择或直接输入，顿号分隔）</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="text" id="e-tags" list="tag-list-2" placeholder="如：同义替换、长难句" style="flex:1;">
+              <button type="button" class="btn btn-ghost" id="btn-e-knowledge" style="height:38px;flex:none;">从大纲选择</button>
+            </div>
+            <datalist id="tag-list-2"></datalist>
+            <div id="e-knowledge-picker" hidden></div>
+          </div>
+          <div class="form-item full">
+            <label>材料 / 文章 / 听力原文（可空）</label>
+            <textarea id="e-passage" placeholder="阅读文章、听力原文、题干背景等"></textarea>
+          </div>
+          <div class="form-item full">
+            <label>题干 <span class="req">*</span></label>
+            <textarea id="e-stem" class="tall" placeholder="题目要求与问题本身"></textarea>
+            <div class="dup-warning" id="e-dup-warning" hidden></div>
+          </div>
+          <div class="form-item full" id="e-options-wrap">
+            <label>选项（每行一个，无需写 A./B. 前缀）</label>
+            <textarea id="e-options" placeholder="选项内容直接换行即可，打印时自动标 A B C D"></textarea>
+          </div>
+          <div class="form-item" id="e-answer-choice-wrap">
+            <label>答案 <span class="req">*</span></label>
+            <input type="text" id="e-answer-choice" placeholder="单选填 A；多选填 A,C">
+          </div>
+          <div class="form-item" id="e-answer-judge-wrap" hidden>
+            <label>答案 <span class="req">*</span></label>
+            <select id="e-answer-judge"><option value="对">对（TRUE）</option><option value="错">错（FALSE）</option></select>
+          </div>
+          <div class="form-item full" id="e-answer-text-wrap">
+            <label>参考答案 / 评分要点 <span class="req">*</span></label>
+            <textarea id="e-answer-text" placeholder="填空/简答/写作/口语题填参考答案或评分要点"></textarea>
+          </div>
+          <div class="form-item full">
+            <label>解析（可空，打印教师卷时随答案展示）</label>
+            <textarea id="e-explanation"></textarea>
+          </div>
+          <div class="form-item">
+            <label>来源</label>
+            <input type="text" id="e-source" placeholder="如：剑桥雅思 19 / OG / 自编">
+          </div>
+          <div class="form-item">
+            <label>建议分值</label>
+            <input type="number" id="e-score" min="0" step="0.5" placeholder="如 3">
+          </div>
+          <div class="form-item">
+            <label>建议用时（分钟）</label>
+            <input type="number" id="e-duration" min="0" placeholder="如 4">
+          </div>
+          <div class="form-item">
+            <label>状态</label>
+            <select id="e-status"><option value="启用">启用</option><option value="停用">停用（组卷时不抽取）</option></select>
+          </div>
+          <div class="form-item full">
+            <label>可见范围</label>
+            <select id="e-public">
+              <option value="1">共享题（全体教师可用）</option>
+              <option value="0">私有题（仅自己与总监可见）</option>
+            </select>
+          </div>
+          <div class="form-item full">
+            <label>听力音频（mp3/wav/m4a ≤20MB，在线答题时学生可播放）</label>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+              <input type="file" id="e-audio-file" accept=".mp3,.wav,.m4a,.ogg,.aac,.webm" hidden>
+              <button type="button" class="btn btn-ghost" id="btn-e-audio">上传音频</button>
+              <button type="button" class="btn btn-ghost" id="btn-e-audio-remove" hidden>移除</button>
+              <span class="f-hint" id="e-audio-name"></span>
+            </div>
+            <div id="e-audio-preview" hidden style="margin-top:8px;"></div>
+          </div>
+          <div class="form-item full">
+            <label>题目配图（数理化几何图等，png/jpg/gif/webp ≤5MB）</label>
+            <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+              <input type="file" id="e-image-file" accept=".png,.jpg,.jpeg,.gif,.webp" hidden>
+              <button type="button" class="btn btn-ghost" id="btn-e-image">上传配图</button>
+              <button type="button" class="btn btn-ghost" id="btn-e-image-remove" hidden>移除</button>
+              <span class="f-hint" id="e-image-name"></span>
+              <img id="e-image-preview" class="q-img-preview" hidden alt="">
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" data-close="modal-question">取消</button>
+          <button class="btn btn-primary" id="btn-save-question">保存试题</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 按配置生成弹窗 -->
+  <div class="modal-mask" id="modal-genconfig">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title">按配置生成到试卷</div>
+          <div class="m-sub">快速模式按题库题型分布自动配卷；精确模式自定题型与难度</div>
+        </div>
+        <button class="modal-close" data-close="modal-genconfig">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-item">
+          <label>出题范围科目（不选则全库）</label>
+          <div class="chip-wrap" id="g-subjects"></div>
+        </div>
+        <div class="section-head" style="margin-top:14px;"><h2>快速模式</h2><span class="sec-note">按题库题型分布配比，分值凑 100</span></div>
+        <div class="toolbar" style="margin-bottom:0;">
+          <input type="number" id="g-quick-count" min="3" max="100" value="20" style="width:76px;height:36px;border:1px solid var(--c-border);border-radius:6px;text-align:center;font-family:var(--f-num);">
+          <span style="font-size:13px;color:var(--c-text-sub);">题</span>
+          <button class="btn btn-accent" id="btn-quick-gen">一键生成到试卷</button>
+        </div>
+        <div class="section-head" style="margin-top:14px;"><h2>精确模式</h2><span class="sec-note">题型 × 数量 × 分值 + 难度分布</span></div>
+        <div id="g-type-rows"></div>
+        <button class="btn btn-ghost" id="btn-add-type-row" type="button">＋ 添加题型</button>
+        <div class="dist-inputs" style="margin-top:12px;">
+          <div class="form-item"><label>基础（难度 1–2）%</label><input type="number" id="g-basic" value="30" min="0" max="100"></div>
+          <div class="form-item"><label>强化（难度 3）%</label><input type="number" id="g-boost" value="50" min="0" max="100"></div>
+          <div class="form-item"><label>冲刺（难度 4–5）%</label><input type="number" id="g-sprint" value="20" min="0" max="100"></div>
+        </div>
+        <div class="dist-preview" id="g-dist-preview"></div>
+        <div class="form-item" style="margin-top:10px;">
+          <label>知识点（可选，顿号分隔，仅抽命中题）</label>
+          <input type="text" id="g-tags" list="tag-list" placeholder="如：同义替换、定积分">
+          <datalist id="tag-list"></datalist>
+        </div>
+        <div class="gen-note" id="gc-note"></div>
+        <div class="form-actions">
+          <button class="btn btn-primary" id="btn-generate">按精确配置生成</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 换题候选弹窗 -->
+  <div class="modal-mask" id="modal-replace">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title">换题</div>
+          <div class="m-sub" id="rp-sub">同科目同题型候选（按难度就近排序），点击替换</div>
+        </div>
+        <button class="modal-close" data-close="modal-replace">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="rp-list" style="max-height:60vh;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 题目全貌预览弹窗 -->
+  <div class="modal-mask" id="modal-view">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title">题目全貌</div>
+          <div class="m-sub">含材料、选项、答案与解析；公式已渲染</div>
+        </div>
+        <button class="modal-close" data-close="modal-view">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="view-body" style="max-height:60vh;overflow-y:auto;"></div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" data-close="modal-view">关闭</button>
+          <button class="btn btn-primary" id="btn-view-add">加入试卷</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 修改密码弹窗 -->
+  <div class="modal-mask" id="modal-password">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <div class="m-title">修改密码</div>
+        <button class="modal-close" data-close="modal-password">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-item"><label>原密码</label><input type="password" id="pw-old"></div>
+        <div class="form-item" style="margin-top:12px;"><label>新密码（至少 6 位）</label><input type="password" id="pw-new"></div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" data-close="modal-password">取消</button>
+          <button class="btn btn-primary" id="btn-save-password">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 回收站弹窗 -->
+  <div class="modal-mask" id="modal-trash">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title">回收站</div>
+          <div class="m-sub">已删除题目保留在此，可恢复或彻底删除</div>
+        </div>
+        <button class="modal-close" data-close="modal-trash">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="toolbar" style="margin-bottom:12px;">
+          <button class="btn btn-danger" id="btn-empty-trash">清空回收站</button>
+          <span class="result-count" id="trash-count"></span>
+        </div>
+        <div id="trash-list" style="max-height:56vh;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 知识点大纲管理弹窗 -->
+  <div class="modal-mask" id="modal-knowledge">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title">知识点大纲</div>
+          <div class="m-sub">按科目维护两级知识点树，录题与组卷时点选使用</div>
+        </div>
+        <button class="modal-close" data-close="modal-knowledge">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="toolbar" style="margin-bottom:12px;">
+          <select id="kn-subject"></select>
+          <input type="text" id="kn-name" placeholder="新知识点名称" style="height:38px;border:1px solid var(--c-border);border-radius:6px;padding:0 12px;flex:1;min-width:140px;">
+          <button class="btn btn-primary" id="btn-kn-add-parent">添加一级</button>
+        </div>
+        <div id="kn-tree" style="max-height:52vh;overflow-y:auto;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 蓝图命名弹窗 -->
+  <div class="modal-mask" id="modal-blueprint">
+    <div class="modal modal-sm">
+      <div class="modal-head">
+        <div class="m-title">保存为组卷蓝图</div>
+        <button class="modal-close" data-close="modal-blueprint">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-item">
+          <label>蓝图名称 <span class="req">*</span></label>
+          <input type="text" id="bp-name" placeholder="如：雅思阅读强化周测蓝图">
+          <span class="f-hint">保存当前题型配置、难度分布与范围科目；载入后一键复用</span>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" data-close="modal-blueprint">取消</button>
+          <button class="btn btn-primary" id="btn-save-blueprint-ok">保存蓝图</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建考试弹窗 -->
+  <div class="modal-mask" id="modal-exam">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title">创建考试</div>
+          <div class="m-sub">关联一套试卷，勾选考生；考后在「录分」中按题登记成绩</div>
+        </div>
+        <button class="modal-close" data-close="modal-exam">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid three">
+          <div class="form-item">
+            <label>考试名称 <span class="req">*</span></label>
+            <input type="text" id="x-name" placeholder="如：雅思阅读周测（10 月第 1 周）">
+          </div>
+          <div class="form-item">
+            <label>关联试卷 <span class="req">*</span></label>
+            <select id="x-paper"></select>
+          </div>
+          <div class="form-item">
+            <label>考试日期</label>
+            <input type="date" id="x-date">
+          </div>
+          <div class="form-item full">
+            <label>备注</label>
+            <input type="text" id="x-remark">
+          </div>
+          <div class="form-item full">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+              <input type="checkbox" id="x-online" style="width:16px;height:16px;">
+              开启学生在线作答（生成 6 位答题码，学生在登录页「在线答题」入口作答，客观题自动判分）
+            </label>
+          </div>
+        </div>
+        <div class="section-head"><h2>考生名单</h2><span class="sec-note">勾选花名册，或在下方批量粘贴</span></div>
+        <div id="x-roster" style="max-height:30vh;overflow-y:auto;border:1px solid var(--c-border);border-radius:6px;padding:10px 14px;background:#fff;"></div>
+        <div class="form-item" style="margin-top:12px;">
+          <label>批量添加考生（每行：姓名，班级；同时加入花名册）</label>
+          <textarea id="x-paste" placeholder="张三，国际小班A&#10;李四，国际小班A"></textarea>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" data-close="modal-exam">取消</button>
+          <button class="btn btn-primary" id="btn-create-exam">创建考试</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/common.js?v=20260928k"></script>
+  <script src="js/mock-data.js?v=20260928k"></script>
+  <script src="js/api.js?v=20260928k"></script>
+  <script src="js/admin.js?v=20260928k"></script>
+  <script src="js/builder.js?v=20260928k"></script>
+  <script src="js/exams.js?v=20260928k"></script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登录 · 国际课程组卷系统</title>
+  <link rel="stylesheet" href="css/style.css?v=20260928k">
+</head>
+<body class="login-body">
+
+  <div class="login-wrap">
+  <!-- 左侧：品牌区 -->
+  <aside class="login-brand">
+    <h1 class="lb-name-zh">成都智慧象留学</h1>
+    <div class="lb-name-en">CHENGDU SMART ELEPHANT EDUCATION</div>
+    <div class="lb-divider"></div>
+    <p class="lb-slogan">让教研沉淀成一份份好卷子</p>
+    <p class="lb-system">国际课程组卷系统</p>
+    <div class="lb-programs" aria-label="国际课程体系">
+      <div class="pg-item"><div class="pg-name">IELTS</div><div class="pg-sub">雅思 4 科</div></div>
+      <div class="pg-item"><div class="pg-name">TOEFL</div><div class="pg-sub">托福 4 科</div></div>
+      <div class="pg-item"><div class="pg-name">A-Level</div><div class="pg-sub">4 门主流学科</div></div>
+      <div class="pg-item"><div class="pg-name">AP</div><div class="pg-sub">5 门美国先修</div></div>
+    </div>
+    <div class="lb-foot">成都智慧象留学 · 教研组卷工作台</div>
+  </aside>
+
+  <!-- 右侧：登录区 -->
+  <main class="login-main">
+    <section class="login-card">
+      <h2 class="lc-title">教师登录</h2>
+      <p class="lc-sub">智能组卷 · 题库管理 · 试卷导出</p>
+
+      <form id="login-form" autocomplete="off" novalidate>
+        <div class="field" id="field-account">
+          <label for="account">账号</label>
+          <input type="text" id="account" placeholder="请输入教师账号">
+          <span class="f-hint">演示账号：teacher / wangli</span>
+        </div>
+        <div class="field" id="field-password">
+          <label for="password">密码</label>
+          <input type="password" id="password" placeholder="请输入密码">
+          <span class="f-hint">演示密码：zx123456</span>
+        </div>
+
+        <div class="login-error" id="login-error" role="alert">账号或密码不正确</div>
+
+        <button type="submit" class="btn-login" id="btn-login">登 录</button>
+      </form>
+
+      <div class="login-mode-note" id="mode-note">正在探测运行环境…</div>
+      <div class="login-mode-note" style="margin-top:6px;">
+        学生作答入口：<a href="answer.html" style="color:var(--c-gold-deep);border-bottom:1px solid var(--c-gold);">在线答题（凭老师提供的答题码）</a>
+      </div>
+    </section>
+  </main>
+  </div>
+
+  <script src="js/common.js?v=20260928k"></script>
+  <script src="js/mock-data.js?v=20260928k"></script>
+  <script src="js/api.js?v=20260928k"></script>
+  <script>
+    (function () {
+      'use strict';
+      var form = document.getElementById('login-form');
+      var errBox = document.getElementById('login-error');
+      var btn = document.getElementById('btn-login');
+
+      window.ZJ.injectWatermark();
+
+      function setErr(msg) {
+        errBox.textContent = msg;
+        errBox.classList.add('show');
+        document.getElementById('field-account').classList.add('err');
+        document.getElementById('field-password').classList.add('err');
+      }
+      function clearErr() {
+        errBox.classList.remove('show');
+        document.getElementById('field-account').classList.remove('err');
+        document.getElementById('field-password').classList.remove('err');
+      }
+
+      // 已登录直接进工作台
+      var auth = window.ZJ.loadAuth();
+      if (auth && auth.name) { location.replace('admin.html'); return; }
+
+      window.ZJ_READY.then(function (mode) {
+        var note = document.getElementById('mode-note');
+        if (mode === 'server') {
+          note.innerHTML = '<b>●</b> 已连接后端服务（数据持久化保存，端口 8687）';
+        } else {
+          note.innerHTML = '<span class="demo">●</span> 演示模式：数据保存在本标签页，关闭即重置';
+        }
+      });
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        clearErr();
+        var account = document.getElementById('account').value.trim();
+        var password = document.getElementById('password').value;
+        if (!account || !password) {
+          setErr('请输入账号与密码');
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = '登录中…';
+        window.ZJ_Data.login(account, password).then(function (profile) {
+          window.ZJ.saveAuth(profile);
+          location.replace('admin.html');
+        }).catch(function (err) {
+          setErr(err.message || '账号或密码不正确');
+          btn.disabled = false;
+          btn.textContent = '登 录';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+# 运行时数据与临时文件
+backend/zujuan.db
+backend/export_tmp.xlsx
+backend/import_template.xlsx
+backend/uploads/
+*.log
+__pycache__/
+
+# 静态演示仓为独立仓库（https://github.com/Serennity007/paper-builder-demo）
+github-pages-repo/
