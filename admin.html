@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>教研工作台 · 国际课程组卷系统</title>
-  <link rel="stylesheet" href="css/style.css?v=20260928k">
+  <link rel="stylesheet" href="css/style.css?v=20260928l">
 </head>
 <body>
 
@@ -37,6 +37,14 @@
       <button class="nav-tab active" data-tab="builder">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
         组卷台
+      </button>
+      <button class="nav-tab" data-tab="archive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 5a2 2 0 0 1 2-2h9l5 5v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5z"/><path d="M14 3v6h6"/><path d="M8 13h8M8 17h5"/></svg>
+        真题库
+      </button>
+      <button class="nav-tab" data-tab="practice">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20l-7-7a4.6 4.6 0 1 1 7-6 4.6 4.6 0 1 1 7 6l-7 7z"/></svg>
+        刷题
       </button>
       <button class="nav-tab" data-tab="bank">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2z"/><path d="M19 17H6a2 2 0 0 0-2 2"/><path d="M9 7h6M9 11h6"/></svg>
@@ -94,6 +102,42 @@
           <div class="section-head"><h2>高频使用题目</h2><span class="sec-note">被组卷引用 Top 5</span></div>
           <div id="top-used"></div>
         </div>
+      </div>
+    </section>
+
+    <!-- ========== 真题库 ========== -->
+    <section id="tab-archive" hidden>
+      <div class="toolbar">
+        <select id="ar-paper"><option value="全部">全部 Paper</option><option value="P1">P1</option><option value="P2">P2</option></select>
+        <input type="number" id="ar-year" placeholder="年份" style="height:38px;width:90px;border:1px solid var(--c-border);border-radius:6px;padding:0 10px;">
+        <select id="ar-session"><option value="全部">全部考季</option><option value="January">January</option><option value="June">June</option><option value="October">October</option></select>
+        <select id="ar-status"><option value="全部状态">全部状态</option><option value="published">已发布</option><option value="draft">草稿</option><option value="disabled">已下架</option></select>
+        <button class="btn btn-primary" id="btn-ep-new">＋ 新建真题卷</button>
+        <span class="result-count" id="ar-count"></span>
+      </div>
+      <div class="table-wrap">
+        <table class="data">
+          <thead><tr><th style="width:150px;">Paper / 卷号</th><th style="width:70px;">年份</th><th style="width:90px;">考季</th><th style="width:70px;">题数</th><th style="width:90px;">资源类型</th><th style="width:86px;">状态</th><th>操作</th></tr></thead>
+          <tbody id="ar-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ========== 知识点刷题 ========== -->
+    <section id="tab-practice" hidden>
+      <div class="toolbar">
+        <select id="pt-paper"><option value="P1">P1 · Pure Mathematics 1</option><option value="P2">P2 · Pure Mathematics 2</option></select>
+        <input type="number" id="pf-year" placeholder="年份" style="height:38px;width:90px;border:1px solid var(--c-border);border-radius:6px;padding:0 10px;">
+        <select id="pf-session"><option value="">全部考季</option><option value="January">January</option><option value="June">June</option></select>
+        <select id="pf-diff"><option value="">全部难度</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
+        <button class="btn btn-ghost" id="pf-fav">♥ 我的收藏</button>
+        <span class="result-count" id="practice-count"></span>
+      </div>
+      <div class="chip-wrap" id="topic-pills" style="margin-bottom:14px;"></div>
+      <div id="practice-list"></div>
+      <div id="practice-fav-pane" hidden style="margin-top:20px;">
+        <div class="section-head"><h2>我的收藏</h2></div>
+        <div id="fav-list"></div>
       </div>
     </section>
 
@@ -508,6 +552,90 @@
     </div>
   </div>
 
+  <!-- 真题卷弹窗 -->
+  <div class="modal-mask" id="modal-exampaper">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title" id="ep-title">新建真题卷</div>
+          <div class="m-sub">Pearson Edexcel IAL Mathematics · QP = Question Paper，MS = Mark Scheme</div>
+        </div>
+        <button class="modal-close" data-close="modal-exampaper">✕</button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="ep-id">
+        <div class="form-grid three">
+          <div class="form-item">
+            <label>Paper <span class="req">*</span></label>
+            <select id="ep-paper"><option value="P1">P1 · Pure Mathematics 1</option><option value="P2">P2 · Pure Mathematics 2</option></select>
+          </div>
+          <div class="form-item">
+            <label>年份 <span class="req">*</span></label>
+            <input type="number" id="ep-year" min="2000" max="2030">
+          </div>
+          <div class="form-item">
+            <label>考季</label>
+            <select id="ep-session"><option value="January">January</option><option value="June">June</option><option value="October">October</option><option value="November">November</option></select>
+          </div>
+          <div class="form-item">
+            <label>卷号（Paper Code）</label>
+            <input type="text" id="ep-code" placeholder="如 WMA11/01">
+          </div>
+          <div class="form-item">
+            <label>状态</label>
+            <select id="ep-status"><option value="published">已发布</option><option value="draft">草稿</option><option value="disabled">已下架</option></select>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:14px;">
+          <div class="form-item">
+            <label>Question Paper PDF</label>
+            <input type="hidden" id="ep-qp-url">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="file" id="ep-qp-file" accept=".pdf" hidden>
+              <button type="button" class="btn btn-ghost" id="btn-ep-qp">上传 QP</button>
+              <span class="f-hint" id="ep-qp-name"></span>
+            </div>
+          </div>
+          <div class="form-item">
+            <label>Mark Scheme PDF</label>
+            <input type="hidden" id="ep-ms-url">
+            <div style="display:flex;gap:8px;align-items:center;">
+              <input type="file" id="ep-ms-file" accept=".pdf" hidden>
+              <button type="button" class="btn btn-ghost" id="btn-ep-ms">上传 MS</button>
+              <span class="f-hint" id="ep-ms-name"></span>
+            </div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn btn-ghost" data-close="modal-exampaper">取消</button>
+          <button class="btn btn-primary" id="btn-ep-save">保存真题卷</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 题目详情弹窗（刷题） -->
+  <div class="modal-mask" id="modal-qd">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="m-title">题目详情</div>
+          <div class="m-sub">Mark Scheme 可展开/收起；可收藏或加入组卷台</div>
+        </div>
+        <button class="modal-close" data-close="modal-qd">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="qd-body" style="max-height:46vh;overflow-y:auto;"></div>
+        <div class="form-actions" style="justify-content:flex-start;">
+          <button class="btn btn-ghost" id="qd-toggle-ms">查看 Mark Scheme</button>
+          <button class="btn-mini star-btn" id="qd-fav">♡ 收藏</button>
+          <button class="btn btn-primary" id="qd-add">加入组卷台试卷</button>
+        </div>
+        <div id="qd-ms" hidden style="margin-top:14px;border-top:1px dashed var(--c-border);padding-top:12px;"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- 知识点大纲管理弹窗 -->
   <div class="modal-mask" id="modal-knowledge">
     <div class="modal">
@@ -599,11 +727,12 @@
     </div>
   </div>
 
-  <script src="js/common.js?v=20260928k"></script>
-  <script src="js/mock-data.js?v=20260928k"></script>
-  <script src="js/api.js?v=20260928k"></script>
-  <script src="js/admin.js?v=20260928k"></script>
-  <script src="js/builder.js?v=20260928k"></script>
-  <script src="js/exams.js?v=20260928k"></script>
+  <script src="js/common.js?v=20260928l"></script>
+  <script src="js/mock-data.js?v=20260928l"></script>
+  <script src="js/api.js?v=20260928l"></script>
+  <script src="js/admin.js?v=20260928l"></script>
+  <script src="js/builder.js?v=20260928l"></script>
+  <script src="js/exams.js?v=20260928l"></script>
+  <script src="js/archive.js?v=20260928l"></script>
 </body>
 </html>

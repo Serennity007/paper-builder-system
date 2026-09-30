@@ -154,6 +154,9 @@
     }).then(function (saved) {
       paper.id = saved.id;
       if (andPrint) {
+        // PRD 7.3/7.4：QP（学生卷）与 MS（教师卷答案页）生成记录
+        Data.recordGenerated(saved.id, 'qp').catch(function () {});
+        Data.recordGenerated(saved.id, 'ms').catch(function () {});
         window.open('print.html?id=' + saved.id + '&ver=student');
       } else {
         ZJ.toast('试卷「' + saved.name + '」已保存（' + saved.status + '，' + saved.questionCount + ' 题 / ' + saved.totalScore + ' 分）');

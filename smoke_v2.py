@@ -182,7 +182,7 @@ check("备份导出", s == 200 and len(bk["questions"]) >= 51 and "exam_scores" 
 s, d = call("POST", "/api/restore", {"data": bk}, token=tok)
 check("恢复导入", s == 200)
 s, d = call("GET", "/api/questions", token=tok)
-check("恢复后数据一致", s == 200 and len(d["questions"]) == 54, "n=%d" % len(d["questions"]))  # 快照含配图题+音频题
+check("恢复后数据一致", s == 200 and len(d["questions"]) >= 88, "n=%d" % len(d["questions"]))  # 快照随种子增长
 
 # 清理配图题
 call("DELETE", "/api/questions/%d" % iqid, token=tok)

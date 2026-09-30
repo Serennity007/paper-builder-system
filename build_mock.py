@@ -49,6 +49,11 @@ for i, q in enumerate(seed["questions"], start=1):
         "status": "启用", "starred": 0, "deletedAt": None,
         "imagePath": q.get("imagePath", ""), "audioPath": q.get("audioPath", ""),
         "isPublic": q.get("isPublic", True),
+        "examPaperId": None, "questionNumber": q.get("questionNumber", ""),
+        "subQuestion": q.get("subQuestion", ""), "questionOrder": int(q.get("questionOrder", 0)),
+        "topicId": None, "subtopicId": None, "answerImageUrl": q.get("answerImageUrl", ""),
+        "examPaperIndex": q.get("examPaperIndex"), "topicName": q.get("topicName", ""),
+        "subTopicName": q.get("subTopicName", ""),
         "createdBy": q.get("createdBy", "teacher"),
         "createdAt": "2026-09-15T09:00:00", "updatedAt": "2026-09-15T09:00:00",
     })
@@ -88,18 +93,61 @@ for node in seed.get("knowledge", []):
     if not node.get("parent"):
         kid += 1
         name_to_id[(node["subject"], node["name"])] = kid
-        knowledge.append({"id": kid, "subject": node["subject"], "name": node["name"], "parentId": 0})
+        knowledge.append({"id": kid, "subject": node["subject"], "name": node["name"], "parentId": 0,
+                          "paperScope": node.get("paperScope", ""), "sortOrder": node.get("sortOrder", 0)})
 for node in seed.get("knowledge", []):
     if node.get("parent"):
         kid += 1
         knowledge.append({"id": kid, "subject": node["subject"], "name": node["name"],
-                          "parentId": name_to_id.get((node["subject"], node["parent"]), 0)})
+                          "parentId": name_to_id.get((node["subject"], node["parent"]), 0),
+                          "paperScope": node.get("paperScope", ""), "sortOrder": node.get("sortOrder", 0)})
+for node in seed.get("knowledgePaper", []):
+    kid += 1
+    if node.get("parent"):
+        pid = name_to_id.get((node["subject"], node["parent"]), 0)
+    else:
+        pid = 0
+        name_to_id[(node["subject"], node["name"])] = kid
+    knowledge.append({"id": kid, "subject": node["subject"], "name": node["name"], "parentId": pid,
+                      "paperScope": node.get("paperScope", ""), "sortOrder": node.get("sortOrder", 0)})
+
+exam_papers = []
+for i, ep in enumerate(seed.get("examPapers", []), start=1):
+    exam_papers.append({"id": i, "examBoard": ep.get("examBoard", "Edexcel"),
+                        "qualification": ep.get("qualification", "IAL"), "subject": ep.get("subject", "Mathematics"),
+                        "paperName": ep["paperName"], "paperCode": ep.get("paperCode", ""),
+                        "year": ep["year"], "session": ep.get("session", ""),
+                        "qpUrl": ep.get("qpUrl", ""), "msUrl": ep.get("msUrl", ""),
+                        "resourceType": ep.get("resourceType", "owned_content"),
+                        "status": ep.get("status", "published"),
+                        "createdBy": "teacher", "createdAt": "2026-09-29T09:00:00", "updatedAt": "2026-09-29T09:00:00"})
+ep_by_idx = {i + 1: e["id"] for i, e in enumerate(exam_papers)}
+topic_by_name = {}
+for knode in knowledge:
+    if not knode["parentId"] and knode["paperScope"]:
+        topic_by_name[knode["name"]] = knode["id"]
+sub_by_name = {}
+for knode in knowledge:
+    if knode["parentId"] and knode["paperScope"]:
+        sub_by_name[(knode["name"], knode["parentId"])] = knode["id"]
+for q in questions:
+    idx = q.get("examPaperIndex")
+    if idx:
+        q["examPaperId"] = ep_by_idx.get(idx)
+    if q.get("topicName"):
+        q["topicId"] = topic_by_name.get(q["topicName"])
+    if q.get("subTopicName") and q.get("topicId"):
+        q["subtopicId"] = sub_by_name.get((q["subTopicName"], q["topicId"]))
+questions.sort(key=lambda x: (-(x.get("examPaperId") or 0), x.get("questionOrder", 0), x["id"]))
 
 payload = {
     "credentials": [{"account": c["account"], "password": c["password"], "name": c["name"],
                      "title": c.get("title", ""), "role": c["role"]} for c in seed["credentials"]],
     "subjects": seed["subjects"],
     "knowledge": knowledge,
+    "examPapers": exam_papers,
+    "favorites": [],
+    "generatedFiles": [],
     "questions": questions,
     "papers": papers,
     "roster": roster,

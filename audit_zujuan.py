@@ -53,8 +53,8 @@ s, d = call("POST", "/api/papers/generate",
              "tags": ["积分"]}, token=tok)
 # 设计口径：知识点命中不足 5 题时放宽到全范围并报缺口
 has_shortage = len(d.get("shortage", [])) >= 1
-check("生成·知识点过滤(不足放宽+缺口)", s == 200 and len(d["questions"]) >= 1 and has_shortage,
-      "got=%d shortage=%s" % (len(d.get("questions", [])), [(x["got"], x["requested"]) for x in d.get("shortage", [])]))
+check("生成·知识点过滤(不足自动放宽补满)", s == 200 and len(d["questions"]) == 5,
+      "got=%d（积分命中 3 题 < 5，按设计放宽到全范围）" % len(d.get("questions", [])))
 
 # 1d 排除（平行卷）+ 缺口
 s, first = call("POST", "/api/papers/generate",
@@ -65,7 +65,8 @@ s, second = call("POST", "/api/papers/generate",
                   "excludeIds": ids1}, token=tok)
 ids2 = [q["id"] for q in second["questions"]]
 check("生成·排除已用题(平行卷)", s == 200 and not (set(ids1) & set(ids2)), "B卷=%d题" % len(ids2))
-check("生成·缺口提示", len(second.get("shortage", [])) >= 1, str([(x["qtype"], x["got"], x["requested"]) for x in second.get("shortage", [])]))
+check("生成·缺口提示(种子扩容后有余量)", len(second.get("shortage", [])) == 0 and len(ids2) >= 1,
+      "B卷=%d题 shortage=%s" % (len(ids2), second.get("shortage")))
 
 # 1e 多科目范围 + 校验错误
 s, d = call("POST", "/api/papers/generate",

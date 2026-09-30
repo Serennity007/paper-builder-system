@@ -215,9 +215,42 @@ def ensure_schema():
             answer_text TEXT DEFAULT '',
             updated_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS exam_papers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            exam_board TEXT NOT NULL DEFAULT 'Edexcel',
+            qualification TEXT NOT NULL DEFAULT 'IAL',
+            subject TEXT NOT NULL DEFAULT 'Mathematics',
+            paper_name TEXT NOT NULL,               -- P1 / P2
+            paper_code TEXT DEFAULT '',             -- 如 WMA11/01
+            year INTEGER NOT NULL,
+            session TEXT DEFAULT '',                -- January / June / October
+            qp_url TEXT DEFAULT '',
+            ms_url TEXT DEFAULT '',
+            resource_type TEXT NOT NULL DEFAULT 'owned_content',
+            status TEXT NOT NULL DEFAULT 'published',   -- draft / published / disabled
+            created_by TEXT DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id TEXT NOT NULL,
+            question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+            created_at TEXT NOT NULL,
+            UNIQUE(user_id, question_id)
+        );
+        CREATE TABLE IF NOT EXISTS generated_files (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_paper_id INTEGER NOT NULL REFERENCES papers(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL DEFAULT 'qp',        -- qp / ms
+            url TEXT DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'success', -- pending / processing / success / failed
+            created_by TEXT DEFAULT '',
+            created_at TEXT NOT NULL
+        );
         """
     )
-    # 旧库迁移：questions 增加收藏/回收站/配图/音频/共享 五列；papers 增加 A/B 卷标记列
+    # 旧库迁移：questions 增加收藏/回收站/配图/音频/共享/真题字段 七列；papers 增加 A/B 卷标记列
     qcols = {r[1] for r in c.execute("PRAGMA table_info(questions)").fetchall()}
     if "starred" not in qcols:
         c.execute("ALTER TABLE questions ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
@@ -229,7 +262,29 @@ def ensure_schema():
         c.execute("ALTER TABLE questions ADD COLUMN audio_path TEXT DEFAULT ''")
     if "is_public" not in qcols:
         c.execute("ALTER TABLE questions ADD COLUMN is_public INTEGER NOT NULL DEFAULT 1")
-    # 归一化：回收站标记只允许 NULL（旧库/种子可能写入空串）
+    if "exam_paper_id" not in qcols:
+        c.execute("ALTER TABLE questions ADD COLUMN exam_paper_id INTEGER")
+    if "question_number" not in qcols:
+        c.execute("ALTER TABLE questions ADD COLUMN question_number TEXT DEFAULT ''")
+    if "sub_question" not in qcols:
+        c.execute("ALTER TABLE questions ADD COLUMN sub_question TEXT DEFAULT ''")
+    if "question_order" not in qcols:
+        c.execute("ALTER TABLE questions ADD COLUMN question_order INTEGER NOT NULL DEFAULT 0")
+    if "topic_id" not in qcols:
+        c.execute("ALTER TABLE questions ADD COLUMN topic_id INTEGER")
+    if "subtopic_id" not in qcols:
+        c.execute("ALTER TABLE questions ADD COLUMN subtopic_id INTEGER")
+    if "answer_image_url" not in qcols:
+        c.execute("ALTER TABLE questions ADD COLUMN answer_image_url TEXT DEFAULT ''")
+    # 知识树：真题卷维度（paper_scope）与排序
+    kcols = {r[1] for r in c.execute("PRAGMA table_info(knowledge_nodes)").fetchall()}
+    if "paper_scope" not in kcols:
+        c.execute("ALTER TABLE knowledge_nodes ADD COLUMN paper_scope TEXT DEFAULT ''")
+    if "sort_order" not in kcols:
+        c.execute("ALTER TABLE knowledge_nodes ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+    if "status" not in kcols:
+        c.execute("ALTER TABLE knowledge_nodes ADD COLUMN status TEXT NOT NULL DEFAULT '启用'")
+    # 归一化：回收站标记只允许 NULL
     c.execute("UPDATE questions SET deleted_at=NULL WHERE deleted_at=''")
     pcols = {r[1] for r in c.execute("PRAGMA table_info(papers)").fetchall()}
     if "variant" not in pcols:
@@ -264,16 +319,57 @@ def seed_if_empty():
             "INSERT OR IGNORE INTO subjects(name, group_name, created_at) VALUES(?,?,?)",
             (s["name"], s["group"], now),
         )
-    for q in seed["questions"]:
+    # 真题卷元数据先行（questions 挂 FK 用）
+    ep_ids = {}
+    for i, ep in enumerate(seed.get("examPapers", []), start=1):
         c.execute(
-            "INSERT INTO questions(subject,qtype,difficulty,tags,passage,stem,options,answer,explanation,score,duration,source,status,image_path,audio_path,is_public,created_by,created_at,updated_at)"
-            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO exam_papers(exam_board,qualification,subject,paper_name,paper_code,year,session,qp_url,ms_url,resource_type,status,created_by,created_at,updated_at)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (ep.get("examBoard", "Edexcel"), ep.get("qualification", "IAL"), ep.get("subject", "Mathematics"),
+             ep["paperName"], ep.get("paperCode", ""), int(ep["year"]), ep.get("session", ""),
+             ep.get("qpUrl", ""), ep.get("msUrl", ""), ep.get("resourceType", "owned_content"),
+             ep.get("status", "published"), "teacher", now, now),
+        )
+        ep_ids[i] = c.lastrowid
+    # 按卷知识树（paper_scope）先行（questions 挂 topic 用）
+    kn_ids = {}
+    for kp in seed.get("knowledgePaper", []):
+        parent_id = 0
+        if kp.get("parent"):
+            parent_id = kn_ids.get((kp["paperScope"], kp["parent"]), 0)
+        c.execute(
+            "INSERT OR IGNORE INTO knowledge_nodes(subject,name,parent_id,paper_scope,sort_order,status,created_at)"
+            " VALUES(?,?,?,?,?,?,?)",
+            (kp["subject"], kp["name"], parent_id, kp.get("paperScope", ""), int(kp.get("sortOrder", 0)), "启用", now),
+        )
+        if not kp.get("parent"):
+            kn_ids[(kp["paperScope"], kp["name"])] = c.lastrowid
+    for q in seed["questions"]:
+        ep_id = ep_ids.get(q.get("examPaperIndex"))
+        topic_id = None
+        if q.get("topicName"):
+            row = c.execute(
+                "SELECT id FROM knowledge_nodes WHERE name=? AND parent_id=0 LIMIT 1", (q["topicName"],)
+            ).fetchone()
+            topic_id = row[0] if row else None
+        sub_id = None
+        if q.get("subTopicName") and topic_id:
+            row = c.execute(
+                "SELECT id FROM knowledge_nodes WHERE name=? AND parent_id=? LIMIT 1",
+                (q["subTopicName"], topic_id),
+            ).fetchone()
+            sub_id = row[0] if row else None
+        c.execute(
+            "INSERT INTO questions(subject,qtype,difficulty,tags,passage,stem,options,answer,explanation,score,duration,source,status,image_path,audio_path,is_public,exam_paper_id,question_number,sub_question,question_order,topic_id,subtopic_id,answer_image_url,created_by,created_at,updated_at)"
+            " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             (
                 q["subject"], q["qtype"], int(q.get("difficulty", 3)), q.get("tags", ""),
                 q.get("passage", ""), q["stem"], json.dumps(q.get("options", []), ensure_ascii=False),
                 q.get("answer", ""), q.get("explanation", ""),
                 float(q.get("score", 0)), int(q.get("duration", 0)), q.get("source", ""),
                 "启用", q.get("imagePath", ""), q.get("audioPath", ""), 1 if q.get("isPublic", True) else 0,
+                ep_id, q.get("questionNumber", ""), q.get("subQuestion", ""),
+                int(q.get("questionOrder", 0)), topic_id, sub_id, q.get("answerImageUrl", ""),
                 q.get("createdBy", "teacher"), now, now,
             ),
         )
@@ -394,6 +490,13 @@ def question_to_dict(row, with_used=False):
         "imagePath": (row["image_path"] or "") if "image_path" in keys else "",
         "audioPath": (row["audio_path"] or "") if "audio_path" in keys else "",
         "isPublic": bool(row["is_public"]) if "is_public" in keys else True,
+        "examPaperId": row["exam_paper_id"] if "exam_paper_id" in keys and row["exam_paper_id"] else None,
+        "questionNumber": (row["question_number"] or "") if "question_number" in keys else "",
+        "subQuestion": (row["sub_question"] or "") if "sub_question" in keys else "",
+        "questionOrder": int(row["question_order"] or 0) if "question_order" in keys else 0,
+        "topicId": row["topic_id"] if "topic_id" in keys and row["topic_id"] else None,
+        "subtopicId": row["subtopic_id"] if "subtopic_id" in keys and row["subtopic_id"] else None,
+        "answerImageUrl": (row["answer_image_url"] or "") if "answer_image_url" in keys else "",
         "deleted": bool(row["deleted_at"]) if "deleted_at" in keys else False,
         "createdBy": row["created_by"] or "",
         "createdAt": row["created_at"],
@@ -404,6 +507,22 @@ def question_to_dict(row, with_used=False):
             "SELECT COUNT(*) AS n FROM paper_items WHERE question_id=?", (row["id"],)
         ).fetchone()["n"]
     return out
+
+
+def annotate_favorites(user_account, questions):
+    """按当前用户批量标注 favorite 字段。"""
+    if not user_account or not questions:
+        return questions
+    ids = [q["id"] for q in questions]
+    ph = ",".join("?" * len(ids))
+    rows = db().execute(
+        f"SELECT question_id FROM favorites WHERE user_id=? AND question_id IN ({ph})",
+        [user_account] + ids,
+    ).fetchall()
+    fav_ids = {r["question_id"] for r in rows}
+    for q in questions:
+        q["favorite"] = q["id"] in fav_ids
+    return questions
 
 
 def clean_options(raw):
@@ -475,6 +594,13 @@ def validate_question(body, existing=None):
         "image_path": str(body.get("imagePath", data.get("imagePath", ""))).strip(),
         "audio_path": str(body.get("audioPath", data.get("audioPath", ""))).strip(),
         "is_public": 1 if body.get("isPublic", data.get("isPublic", True)) else 0,
+        "exam_paper_id": int(body["examPaperId"]) if body.get("examPaperId") else (data.get("examPaperId") or None),
+        "question_number": str(body.get("questionNumber", data.get("questionNumber", ""))).strip(),
+        "sub_question": str(body.get("subQuestion", data.get("subQuestion", ""))).strip(),
+        "question_order": int(body.get("questionOrder") or data.get("questionOrder") or 0),
+        "topic_id": int(body["topicId"]) if body.get("topicId") else (data.get("topicId") or None),
+        "subtopic_id": int(body["subtopicId"]) if body.get("subtopicId") else (data.get("subtopicId") or None),
+        "answer_image_url": str(body.get("answerImageUrl", data.get("answerImageUrl", ""))).strip(),
     }
     if fields["status"] not in ("启用", "停用"):
         fields["status"] = "启用"
@@ -657,12 +783,53 @@ def list_questions():
         conds.append("(stem LIKE ? OR passage LIKE ? OR tags LIKE ? OR answer LIKE ? OR source LIKE ?)")
         like = f"%{keyword}%"
         params += [like, like, like, like, like]
+    # 真题维度筛选（知识点刷题）：真题卷/年份/考季/Topic/Subtopic，仅含有 topic 的已发布题
+    exam_paper = request.args.get("exam_paper", "").strip()
+    ep_year = request.args.get("year", "").strip()
+    ep_session = request.args.get("session", "").strip()
+    topic_id = request.args.get("topic_id", "").strip()
+    subtopic_id = request.args.get("subtopic_id", "").strip()
+    only_exam = request.args.get("only_exam", "").strip()
+    if topic_id and topic_id != "0":
+        conds.append("topic_id=?")
+        params.append(int(topic_id))
+    if subtopic_id and subtopic_id != "0" and subtopic_id != "all":
+        conds.append("subtopic_id=?")
+        params.append(int(subtopic_id))
+    if only_exam == "1":
+        conds.append("exam_paper_id IS NOT NULL AND topic_id IS NOT NULL")
+    if exam_paper or ep_year or ep_session:
+        conds.append("exam_paper_id IN (SELECT id FROM exam_papers WHERE 1=1"
+                     + (" AND paper_name=?" if exam_paper else "")
+                     + (" AND year=?" if ep_year else "")
+                     + (" AND session=?" if ep_session else "") + ")")
+        if exam_paper:
+            params.append(exam_paper)
+        if ep_year:
+            params.append(int(ep_year))
+        if ep_session:
+            params.append(ep_session)
     where = " WHERE " + " AND ".join(conds)
+    # 分页（知识点刷题：20 条/页）；limit 兼容旧调用
+    page = max(1, int(request.args.get("page", 1) or 1))
+    page_size = min(max(1, int(request.args.get("page_size", 20) or 20)), 100)
+    has_page = request.args.get("page") is not None
+    if has_page:
+        total = db().execute(f"SELECT COUNT(*) AS n FROM questions{where}", params).fetchone()["n"]
+        rows = db().execute(
+            f"SELECT * FROM questions{where} ORDER BY exam_paper_id DESC, question_order, id LIMIT ? OFFSET ?",
+            (*params, page_size, (page - 1) * page_size),
+        ).fetchall()
+        qs = [question_to_dict(r, with_used=True) for r in rows]
+        annotate_favorites(user["account"], qs)
+        return jsonify({"questions": qs, "total": total, "page": page, "page_size": page_size})
     limit = min(int(request.args.get("limit", 300) or 300), 1000)
     rows = db().execute(
         f"SELECT * FROM questions{where} ORDER BY id DESC LIMIT ?", (*params, limit)
     ).fetchall()
-    return jsonify({"questions": [question_to_dict(r, with_used=True) for r in rows], "total": len(rows)})
+    qs = [question_to_dict(r, with_used=True) for r in rows]
+    annotate_favorites(user["account"], qs)
+    return jsonify({"questions": qs, "total": len(qs)})
 
 
 @app.post("/api/questions")
@@ -678,12 +845,14 @@ def create_question():
     now = datetime.now().isoformat(timespec="seconds")
     conn = db()
     conn.execute(
-        "INSERT INTO questions(subject,qtype,difficulty,tags,passage,stem,options,answer,explanation,score,duration,source,status,image_path,audio_path,is_public,created_by,created_at,updated_at)"
-        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO questions(subject,qtype,difficulty,tags,passage,stem,options,answer,explanation,score,duration,source,status,image_path,audio_path,is_public,exam_paper_id,question_number,sub_question,question_order,topic_id,subtopic_id,answer_image_url,created_by,created_at,updated_at)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (fields["subject"], fields["qtype"], fields["difficulty"], fields["tags"], fields["passage"],
          fields["stem"], fields["options"], fields["answer"], fields["explanation"], fields["score"],
          fields["duration"], fields["source"], fields["status"], fields["image_path"], fields["audio_path"],
-         fields["is_public"], user["account"], now, now),
+         fields["is_public"], fields["exam_paper_id"], fields["question_number"], fields["sub_question"],
+         fields["question_order"], fields["topic_id"], fields["subtopic_id"], fields["answer_image_url"],
+         user["account"], now, now),
     )
     qid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     log_action(user, "新增试题", fields["subject"], f"{fields['qtype']} · {fields['stem'][:24]}")
@@ -711,11 +880,13 @@ def update_question(qid):
     fields["updated_at"] = datetime.now().isoformat(timespec="seconds")
     conn = db()
     conn.execute(
-        "UPDATE questions SET subject=?,qtype=?,difficulty=?,tags=?,passage=?,stem=?,options=?,answer=?,explanation=?,score=?,duration=?,source=?,status=?,image_path=?,audio_path=?,is_public=?,updated_at=? WHERE id=?",
+        "UPDATE questions SET subject=?,qtype=?,difficulty=?,tags=?,passage=?,stem=?,options=?,answer=?,explanation=?,score=?,duration=?,source=?,status=?,image_path=?,audio_path=?,is_public=?,exam_paper_id=?,question_number=?,sub_question=?,question_order=?,topic_id=?,subtopic_id=?,answer_image_url=?,updated_at=? WHERE id=?",
         (fields["subject"], fields["qtype"], fields["difficulty"], fields["tags"], fields["passage"],
          fields["stem"], fields["options"], fields["answer"], fields["explanation"], fields["score"],
          fields["duration"], fields["source"], fields["status"], fields["image_path"], fields["audio_path"],
-         fields["is_public"], fields["updated_at"], qid),
+         fields["is_public"], fields["exam_paper_id"], fields["question_number"], fields["sub_question"],
+         fields["question_order"], fields["topic_id"], fields["subtopic_id"], fields["answer_image_url"],
+         fields["updated_at"], qid),
     )
     # 题目改动后，同步已入卷试题的分区名（按题型自动分组）
     conn.execute("UPDATE paper_items SET section=? WHERE question_id=? AND section=''", (fields["qtype"], qid))
@@ -879,11 +1050,12 @@ def check_duplicate():
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 UPLOAD_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".aac", ".webm"}
+DOC_EXTS = {".pdf"}
 
 
 @app.post("/api/upload")
 def upload_file():
-    """题目附件上传：图片（≤5MB）与听力音频（≤20MB），存 backend/uploads/。"""
+    """文件上传：图片（≤5MB）、音频（≤20MB）、QP/MS PDF（≤20MB），存 backend/uploads/。"""
     user, err = require_role("teacher")
     if err:
         return err
@@ -893,10 +1065,12 @@ def upload_file():
     ext = os.path.splitext(file.filename)[1].lower()
     if ext in AUDIO_EXTS:
         limit, kind = 20 * 1024 * 1024, "audio"
+    elif ext in DOC_EXTS:
+        limit, kind = 20 * 1024 * 1024, "file"
     elif ext in UPLOAD_EXTS:
         limit, kind = 5 * 1024 * 1024, "image"
     else:
-        return jsonify({"error": "仅支持图片（png/jpg/gif/webp）或音频（mp3/wav/m4a/ogg）"}), 400
+        return jsonify({"error": "仅支持图片 / 音频 / PDF 文件"}), 400
     file.seek(0, os.SEEK_END)
     if file.tell() > limit:
         return jsonify({"error": ("音频" if kind == "audio" else "图片") + "超出大小限制"}), 400
@@ -2382,6 +2556,253 @@ def exam_report(eid):
     if report is None:
         return jsonify({"error": "考试不存在"}), 404
     return jsonify(report)
+
+
+# ---------------- 真题库（exam_papers）与知识点刷题 ----------------
+
+def exam_paper_to_dict(row):
+    keys = row.keys()
+    return {
+        "id": row["id"],
+        "examBoard": row["exam_board"] or "Edexcel",
+        "qualification": row["qualification"] or "IAL",
+        "subject": row["subject"] or "Mathematics",
+        "paperName": row["paper_name"],
+        "paperCode": row["paper_code"] or "",
+        "year": int(row["year"]),
+        "session": row["session"] or "",
+        "qpUrl": row["qp_url"] or "",
+        "msUrl": row["ms_url"] or "",
+        "resourceType": row["resource_type"] or "owned_content",
+        "status": row["status"],
+        "questionCount": db().execute(
+            "SELECT COUNT(*) AS n FROM questions WHERE exam_paper_id=? AND deleted_at IS NULL", (row["id"],)
+        ).fetchone()["n"],
+        "createdAt": row["created_at"],
+        "updatedAt": row["updated_at"],
+    }
+
+
+@app.get("/api/exam-papers")
+def list_exam_papers():
+    user, err = require_role()
+    if err:
+        return err
+    conds, params = ["1=1"], []
+    if user["role"] == "student":
+        conds.append("status='published'")
+    else:
+        status = request.args.get("status", "").strip()
+        if status and status != "全部状态":
+            conds.append("status=?")
+            params.append(status)
+    paper = request.args.get("paper", "").strip()
+    year = request.args.get("year", "").strip()
+    session_ = request.args.get("session", "").strip()
+    if paper and paper != "全部":
+        conds.append("paper_name=?")
+        params.append(paper)
+    if year:
+        conds.append("year=?")
+        params.append(int(year))
+    if session_ and session_ != "全部":
+        conds.append("session=?")
+        params.append(session_)
+    rows = db().execute(
+        "SELECT * FROM exam_papers WHERE " + " AND ".join(conds) + " ORDER BY year DESC, session DESC, id",
+        params,
+    ).fetchall()
+    return jsonify({"examPapers": [exam_paper_to_dict(r) for r in rows]})
+
+
+@app.post("/api/exam-papers")
+def create_exam_paper():
+    user, err = require_role("teacher")
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    paper_name = str(body.get("paperName", "")).strip()
+    year = int(body.get("year") or 0)
+    if paper_name not in ("P1", "P2"):
+        return jsonify({"error": "paperName 须为 P1 或 P2"}), 400
+    if not year:
+        return jsonify({"error": "请填写年份"}), 400
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = db()
+    conn.execute(
+        "INSERT INTO exam_papers(exam_board,qualification,subject,paper_name,paper_code,year,session,qp_url,ms_url,resource_type,status,created_by,created_at,updated_at)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        (str(body.get("examBoard", "Edexcel")).strip() or "Edexcel",
+         str(body.get("qualification", "IAL")).strip() or "IAL",
+         str(body.get("subject", "Mathematics")).strip() or "Mathematics",
+         paper_name, str(body.get("paperCode", "")).strip(), year,
+         str(body.get("session", "")).strip(), str(body.get("qpUrl", "")).strip(),
+         str(body.get("msUrl", "")).strip(), str(body.get("resourceType", "owned_content")).strip(),
+         body.get("status", "published") if body.get("status") in ("draft", "published", "disabled") else "published",
+         user["account"], now, now),
+    )
+    epid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+    log_action(user, "新建真题卷", paper_name, str(year))
+    conn.commit()
+    row = conn.execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    return jsonify({"examPaper": exam_paper_to_dict(row)})
+
+
+@app.put("/api/exam-papers/<int:epid>")
+def update_exam_paper(epid):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row:
+        return jsonify({"error": "真题卷不存在"}), 404
+    body = request.get_json(silent=True) or {}
+    now = datetime.now().isoformat(timespec="seconds")
+    status = body.get("status", row["status"])
+    if status not in ("draft", "published", "disabled"):
+        status = row["status"]
+    db().execute(
+        "UPDATE exam_papers SET paper_code=?, qp_url=?, ms_url=?, resource_type=?, status=?, updated_at=? WHERE id=?",
+        (str(body.get("paperCode", row["paper_code"])).strip(),
+         str(body.get("qpUrl", row["qp_url"])).strip(),
+         str(body.get("msUrl", row["ms_url"])).strip(),
+         str(body.get("resourceType", row["resource_type"])).strip(),
+         status, now, epid),
+    )
+    log_action(user, "编辑真题卷", row["paper_name"], str(row["year"]))
+    db().commit()
+    fresh = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    return jsonify({"examPaper": exam_paper_to_dict(fresh)})
+
+
+@app.delete("/api/exam-papers/<int:epid>")
+def delete_exam_paper(epid):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row:
+        return jsonify({"error": "真题卷不存在"}), 404
+    conn = db()
+    conn.execute("UPDATE questions SET exam_paper_id=NULL WHERE exam_paper_id=?", (epid,))
+    conn.execute("DELETE FROM exam_papers WHERE id=?", (epid,))
+    log_action(user, "删除真题卷", row["paper_name"], str(row["year"]))
+    conn.commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/exam-topics")
+def exam_topics():
+    """按真题卷维度返回 Topic/Subtopic 树（含已发布题量）。"""
+    user, err = require_role()
+    if err:
+        return err
+    paper = request.args.get("paper", "P1").strip()
+    rows = db().execute(
+        "SELECT * FROM knowledge_nodes WHERE paper_scope=? AND status='启用' ORDER BY sort_order, id",
+        (paper,),
+    ).fetchall()
+    parents = [r for r in rows if not r["parent_id"]]
+
+    def count(rid, child_ids):
+        ids = [rid] + child_ids
+        ph = ",".join("?" * len(ids))
+        return db().execute(
+            "SELECT COUNT(*) AS n FROM questions WHERE topic_id IN (%s) AND deleted_at IS NULL AND status='启用'" % ph,
+            ids,
+        ).fetchone()["n"]
+
+    tree = []
+    for p in parents:
+        children = [r for r in rows if r["parent_id"] == p["id"]]
+        child_ids = [ch["id"] for ch in children]
+        tree.append({
+            "id": p["id"], "name": p["name"], "count": count(p["id"], child_ids),
+            "children": [{"id": ch["id"], "name": ch["name"], "count": count(ch["id"], [])} for ch in children],
+        })
+    return jsonify({"paper": paper, "topics": tree})
+
+
+# ---------------- 收藏（favorites） ----------------
+
+@app.get("/api/favorites")
+def list_favorites():
+    user, err = require_role()
+    if err:
+        return err
+    rows = db().execute(
+        "SELECT q.* FROM favorites f JOIN questions q ON q.id=f.question_id"
+        " WHERE f.user_id=? AND q.deleted_at IS NULL ORDER BY f.id DESC",
+        (user["account"],),
+    ).fetchall()
+    qs = [question_to_dict(r, with_used=True) for r in rows]
+    annotate_favorites(user["account"], qs)
+    return jsonify({"questions": qs})
+
+
+@app.post("/api/favorites")
+def add_favorite():
+    user, err = require_role()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    qid = int(body.get("questionId") or 0)
+    if not db().execute("SELECT 1 FROM questions WHERE id=? AND deleted_at IS NULL", (qid,)).fetchone():
+        return jsonify({"error": "题目不存在"}), 404
+    db().execute(
+        "INSERT OR IGNORE INTO favorites(user_id, question_id, created_at) VALUES(?,?,?)",
+        (user["account"], qid, datetime.now().isoformat(timespec="seconds")),
+    )
+    db().commit()
+    return jsonify({"ok": True, "favorite": True})
+
+
+@app.delete("/api/favorites/<int:qid>")
+def remove_favorite(qid):
+    user, err = require_role()
+    if err:
+        return err
+    db().execute("DELETE FROM favorites WHERE user_id=? AND question_id=?", (user["account"], qid))
+    db().commit()
+    return jsonify({"ok": True, "favorite": False})
+
+
+# ---------------- PDF 生成记录（generated_files） ----------------
+
+@app.post("/api/generated-files")
+def record_generated():
+    user, err = require_role("teacher")
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    upid = int(body.get("userPaperId") or 0)
+    if not db().execute("SELECT 1 FROM papers WHERE id=?", (upid,)).fetchone():
+        return jsonify({"error": "试卷不存在"}), 404
+    kind = body.get("kind") if body.get("kind") in ("qp", "ms") else "qp"
+    db().execute(
+        "INSERT INTO generated_files(user_paper_id, kind, url, status, created_by, created_at) VALUES(?,?,?,?,?,?)",
+        (upid, kind, str(body.get("url", "")).strip(), "success", user["account"],
+         datetime.now().isoformat(timespec="seconds")),
+    )
+    db().commit()
+    return jsonify({"ok": True})
+
+
+@app.get("/api/generated-files")
+def list_generated():
+    user, err = require_role()
+    if err:
+        return err
+    upid = int(request.args.get("userPaperId") or 0)
+    if upid:
+        rows = db().execute(
+            "SELECT * FROM generated_files WHERE user_paper_id=? ORDER BY id DESC LIMIT 50", (upid,)
+        ).fetchall()
+    else:
+        rows = db().execute(
+            "SELECT * FROM generated_files ORDER BY id DESC LIMIT 50"
+        ).fetchall()
+    return jsonify({"files": [dict(r) for r in rows]})
 
 
 # ---------------- 审计 ----------------

@@ -559,7 +559,13 @@
    "explanation": "幂法则：d/dx(3x²)=6x，d/dx(−5x)=−5，常数项导数为 0 → 6x − 5。",
    "score": 3,
    "duration": 2,
-   "source": "自编（P1 微分）"
+   "source": "自编（P1 微分）",
+   "examPaperIndex": 1,
+   "questionNumber": "2",
+   "subQuestion": "",
+   "questionOrder": 2,
+   "topicName": "Differentiation",
+   "subTopicName": ""
   },
   {
    "subject": "A-Level 数学",
@@ -578,7 +584,13 @@
    "explanation": "sin x = 0.5 → x = 30° 或 150°（第二象限 180°−30°），共 2 个解。画单位圆/sin 曲线辅助判断。",
    "score": 3,
    "duration": 3,
-   "source": "自编（P1 三角）"
+   "source": "自编（P1 三角）",
+   "examPaperIndex": 2,
+   "questionNumber": "4",
+   "subQuestion": "",
+   "questionOrder": 4,
+   "topicName": "Trigonometry",
+   "subTopicName": ""
   },
   {
    "subject": "A-Level 数学",
@@ -592,7 +604,13 @@
    "explanation": "评分要点：不定积分正确（x⁴ − 3x²）1 分；代上下限 1 分；最终答案 4 为 1 分。常见错误：4x³ 积分漏除以 4 得 4x⁴。",
    "score": 5,
    "duration": 6,
-   "source": "自编（P1 积分）"
+   "source": "自编（P1 积分）",
+   "examPaperIndex": 2,
+   "questionNumber": "5",
+   "subQuestion": "",
+   "questionOrder": 5,
+   "topicName": "Integration",
+   "subTopicName": "Definite Integrals"
   },
   {
    "subject": "A-Level 数学",
@@ -606,7 +624,13 @@
    "explanation": "通项 C(5,k)·2^(5−k)·x^k，取 k=2：10 × 8 = 80。评分：通项正确 2 分、计算 2 分、答案 1 分。",
    "score": 5,
    "duration": 6,
-   "source": "自编（P2 二项式）"
+   "source": "自编（P2 二项式）",
+   "examPaperIndex": 3,
+   "questionNumber": "3",
+   "subQuestion": "",
+   "questionOrder": 3,
+   "topicName": "Binomial Expansion",
+   "subTopicName": ""
   },
   {
    "subject": "A-Level 数学",
@@ -625,7 +649,13 @@
    "explanation": "x = log₂40 = ln40/ln2 ≈ 3.689/0.693 ≈ 5.32。",
    "score": 3,
    "duration": 4,
-   "source": "自编（P2 指数对数）"
+   "source": "自编（P2 指数对数）",
+   "examPaperIndex": 3,
+   "questionNumber": "2",
+   "subQuestion": "",
+   "questionOrder": 2,
+   "topicName": "Exponentials & Logarithms",
+   "subTopicName": "Solving Equations"
   },
   {
    "subject": "A-Level 数学",
@@ -639,7 +669,13 @@
    "explanation": "评分要点：(a) 令 v=0 并解出 t（2 分）；(b) 意识到速度变号需分段（2 分）、积分计算（2 分）、答案 27 m（1 分）。若只算位移 −27 而非距离扣 2 分。",
    "score": 7,
    "duration": 10,
-   "source": "自编（P3/M1 应用）"
+   "source": "自编（P3/M1 应用）",
+   "examPaperIndex": 1,
+   "questionNumber": "3",
+   "subQuestion": "a",
+   "questionOrder": 3,
+   "topicName": "Differentiation",
+   "subTopicName": ""
   },
   {
    "subject": "A-Level 物理",
@@ -947,7 +983,13 @@
    "explanation": "幂法则：$\\frac{d}{dx}x^3 = 3x^2$，$\\frac{d}{dx}\\sqrt{x} = \\frac{1}{2\\sqrt{x}}$，故选 A。",
    "score": 3,
    "duration": 3,
-   "source": "自编（P1 微分）"
+   "source": "自编（P1 微分）",
+   "examPaperIndex": 2,
+   "questionNumber": "6",
+   "subQuestion": "",
+   "questionOrder": 6,
+   "topicName": "Differentiation",
+   "subTopicName": ""
   },
   {
    "subject": "雅思阅读",
@@ -1296,7 +1338,13 @@
    "explanation": "评分：(a) 求导 2 分；(b) 解方程与两点坐标各 2 分；(c) 二阶导判别并说明性质共 3 分（只算一阶导符号变化同样给分）。",
    "score": 9,
    "duration": 12,
-   "source": "剑桥风格仿真题"
+   "source": "剑桥风格仿真题",
+   "examPaperIndex": 4,
+   "questionNumber": "4",
+   "subQuestion": "",
+   "questionOrder": 4,
+   "topicName": "Differentiation",
+   "subTopicName": "Stationary Points"
   },
   {
    "subject": "A-Level 数学",
@@ -1310,7 +1358,13 @@
    "explanation": "评分：换元意识 2 分、因式分解 1 分、两个解各 1 分（x=0 与 x=log₃2）。未化到精确形式扣 1 分。",
    "score": 5,
    "duration": 8,
-   "source": "剑桥风格仿真题"
+   "source": "剑桥风格仿真题",
+   "examPaperIndex": 4,
+   "questionNumber": "5",
+   "subQuestion": "",
+   "questionOrder": 5,
+   "topicName": "Exponentials & Logarithms",
+   "subTopicName": ""
   },
   {
    "subject": "A-Level 数学",
@@ -1329,7 +1383,13 @@
    "explanation": "通项 C(6,3)(2x)³ = 20 × 8x³ = 160x³ → 系数 160 → C。",
    "score": 3,
    "duration": 4,
-   "source": "剑桥风格仿真题"
+   "source": "剑桥风格仿真题",
+   "examPaperIndex": 3,
+   "questionNumber": "1",
+   "subQuestion": "",
+   "questionOrder": 1,
+   "topicName": "Binomial Expansion",
+   "subTopicName": "Coefficient Finding"
   },
   {
    "subject": "A-Level 数学",
@@ -1343,7 +1403,13 @@
    "explanation": "评分：(a) 令 v=0 并解出两点 2 分；(b) 积分 3 分、判断不变号并给出距离 2 分。",
    "score": 7,
    "duration": 10,
-   "source": "剑桥风格仿真题"
+   "source": "剑桥风格仿真题",
+   "examPaperIndex": 1,
+   "questionNumber": "3",
+   "subQuestion": "a",
+   "questionOrder": 3,
+   "topicName": "Differentiation",
+   "subTopicName": "Stationary Points"
   },
   {
    "subject": "A-Level 数学",
@@ -1362,7 +1428,13 @@
    "explanation": "配方：(x−3)² + (y+2)² = 3+9+4 = 16 → 圆心 (3, −2)、半径 4 → A。",
    "score": 2,
    "duration": 3,
-   "source": "剑桥风格仿真题"
+   "source": "剑桥风格仿真题",
+   "examPaperIndex": 1,
+   "questionNumber": "1",
+   "subQuestion": "",
+   "questionOrder": 1,
+   "topicName": "Straight Lines & Circles",
+   "subTopicName": ""
   },
   {
    "subject": "A-Level 物理",
@@ -2005,6 +2077,176 @@
    "subject": "AP 微积分",
    "name": "积分与应用",
    "parent": 0
+  }
+ ],
+ "examPapers": [
+  {
+   "paperName": "P1",
+   "paperCode": "WMA11/01",
+   "year": 2024,
+   "session": "June",
+   "status": "published",
+   "examBoard": "Edexcel",
+   "qualification": "IAL",
+   "subject": "Mathematics"
+  },
+  {
+   "paperName": "P1",
+   "paperCode": "WMA11/01",
+   "year": 2024,
+   "session": "January",
+   "status": "published",
+   "examBoard": "Edexcel",
+   "qualification": "IAL",
+   "subject": "Mathematics"
+  },
+  {
+   "paperName": "P2",
+   "paperCode": "WMA12/01",
+   "year": 2024,
+   "session": "June",
+   "status": "published",
+   "examBoard": "Edexcel",
+   "qualification": "IAL",
+   "subject": "Mathematics"
+  },
+  {
+   "paperName": "P2",
+   "paperCode": "WMA12/01",
+   "year": 2024,
+   "session": "January",
+   "status": "published",
+   "examBoard": "Edexcel",
+   "qualification": "IAL",
+   "subject": "Mathematics"
+  }
+ ],
+ "knowledgePaper": [
+  {
+   "subject": "A-Level 数学",
+   "name": "Algebraic Expressions & Quadratics",
+   "parent": "",
+   "paperScope": "P1",
+   "sortOrder": 1
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Equations & Inequalities",
+   "parent": "",
+   "paperScope": "P1",
+   "sortOrder": 2
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Graphs & Transformations",
+   "parent": "",
+   "paperScope": "P1",
+   "sortOrder": 3
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Straight Lines & Circles",
+   "parent": "",
+   "paperScope": "P1",
+   "sortOrder": 4
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Trigonometry",
+   "parent": "",
+   "paperScope": "P1",
+   "sortOrder": 5
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Differentiation",
+   "parent": "",
+   "paperScope": "P1",
+   "sortOrder": 6
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Integration",
+   "parent": "",
+   "paperScope": "P1",
+   "sortOrder": 7
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Proof",
+   "parent": "",
+   "paperScope": "P2",
+   "sortOrder": 1
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Binomial Expansion",
+   "parent": "",
+   "paperScope": "P2",
+   "sortOrder": 2
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Trigonometric Identities",
+   "parent": "",
+   "paperScope": "P2",
+   "sortOrder": 3
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Exponentials & Logarithms",
+   "parent": "",
+   "paperScope": "P2",
+   "sortOrder": 4
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Differentiation",
+   "parent": "",
+   "paperScope": "P2",
+   "sortOrder": 5
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Integration",
+   "parent": "",
+   "paperScope": "P2",
+   "sortOrder": 6
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Stationary Points",
+   "parent": "Differentiation",
+   "paperScope": "P1",
+   "sortOrder": 9
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Tangents & Normals",
+   "parent": "Differentiation",
+   "paperScope": "P1",
+   "sortOrder": 9
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Definite Integrals",
+   "parent": "Integration",
+   "paperScope": "P1",
+   "sortOrder": 9
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Solving Equations",
+   "parent": "Exponentials & Logarithms",
+   "paperScope": "P2",
+   "sortOrder": 9
+  },
+  {
+   "subject": "A-Level 数学",
+   "name": "Coefficient Finding",
+   "parent": "Binomial Expansion",
+   "paperScope": "P2",
+   "sortOrder": 9
   }
  ]
 }

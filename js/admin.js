@@ -72,6 +72,8 @@
     if (name === 'papers') { loadPapers(); }
     if (name === 'audit') { loadAudit(); }
     if (name === 'builder' && window.ZJ_Builder) { window.ZJ_Builder.refresh(); }
+    if (name === 'archive' && window.ZJ_Archive) { window.ZJ_Archive.refresh(); }
+    if (name === 'practice' && window.ZJ_Archive) { window.ZJ_Archive.refresh(); }
     if (name === 'exams' && window.ZJ_Exams) { window.ZJ_Exams.refresh(); }
   }
 
@@ -910,6 +912,7 @@
       refreshOverview();   // 后台刷新统计（含回收站角标），默认页签为组卷台
       if (window.ZJ_Exams) { window.ZJ_Exams.init({ ZJ: ZJ, Data: Data, state: state }); }
       if (window.ZJ_Builder) { window.ZJ_Builder.init({ ZJ: ZJ, Data: Data, state: state }); }
+      if (window.ZJ_Archive) { window.ZJ_Archive.init({ ZJ: ZJ, Data: Data, state: state }); }
       switchTab('builder');
       return null;
     });

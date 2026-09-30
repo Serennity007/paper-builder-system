@@ -255,6 +255,39 @@
       return API.req('PUT', '/api/me/password', { oldPassword: oldPassword, newPassword: newPassword });
     },
 
+    examPapers: function (filters) {
+      var qs = [];
+      Object.keys(filters || {}).forEach(function (k) {
+        var v = filters[k];
+        if (v !== undefined && v !== null && String(v) !== '') { qs.push(encodeURIComponent(k) + '=' + encodeURIComponent(v)); }
+      });
+      return API.req('GET', '/api/exam-papers' + (qs.length ? '?' + qs.join('&') : '')).then(function (d) { return d.examPapers; });
+    },
+    createExamPaper: function (fields) {
+      return API.req('POST', '/api/exam-papers', fields).then(function (d) { return d.examPaper; });
+    },
+    updateExamPaper: function (id, fields) {
+      return API.req('PUT', '/api/exam-papers/' + encodeURIComponent(id), fields).then(function (d) { return d.examPaper; });
+    },
+    deleteExamPaper: function (id) {
+      return API.req('DELETE', '/api/exam-papers/' + encodeURIComponent(id));
+    },
+    examTopics: function (paper) {
+      return API.req('GET', '/api/exam-topics?paper=' + encodeURIComponent(paper)).then(function (d) { return d; });
+    },
+    favorites: function () {
+      return API.req('GET', '/api/favorites').then(function (d) { return d.questions; });
+    },
+    addFavorite: function (questionId) {
+      return API.req('POST', '/api/favorites', { questionId: questionId });
+    },
+    removeFavorite: function (questionId) {
+      return API.req('DELETE', '/api/favorites/' + encodeURIComponent(questionId));
+    },
+    recordGenerated: function (userPaperId, kind) {
+      return API.req('POST', '/api/generated-files', { userPaperId: userPaperId, kind: kind || 'qp' });
+    },
+
     backup: function () {
       return API.downloadFile('/api/backup', '组卷系统备份_' + window.ZJ.todayStr() + '.json');
     },
@@ -1180,6 +1213,112 @@
     changePassword: function () {
       return Promise.reject(new Error('演示模式（无后端）不支持修改密码，请启动 backend/app.py'));
     },
+    /* ---- 真题库 / 收藏 / 生成记录（演示模式，存本地库） ---- */
+    examPapers: function (filters) {
+      var db = demoDb();
+      var list = db.examPapers.filter(function (p) {
+        if (filters.paper && filters.paper !== '全部' && p.paperName !== filters.paper) { return false; }
+        if (filters.year && String(p.year) !== String(filters.year)) { return false; }
+        if (filters.session && filters.session !== '全部' && p.session !== filters.session) { return false; }
+        if (filters.status && filters.status !== '全部状态' && p.status !== filters.status) { return false; }
+        return true;
+      });
+      return Promise.resolve(list.map(function (p) {
+        var n = 0;
+        db.questions.forEach(function (q) { if (q.examPaperId === p.id && !q.deletedAt) { n += 1; } });
+        return JSON.parse(JSON.stringify(Object.assign({}, p, { questionCount: n })));
+      }));
+    },
+    createExamPaper: function (fields) {
+      var db = demoDb();
+      if (['P1', 'P2'].indexOf(fields.paperName) < 0) { return Promise.reject(new Error('paperName 须为 P1 或 P2')); }
+      var p = {
+        id: db.examPapers.length + 1,
+        examBoard: fields.examBoard || 'Edexcel', qualification: fields.qualification || 'IAL',
+        subject: fields.subject || 'Mathematics', paperName: fields.paperName,
+        paperCode: fields.paperCode || '', year: Number(fields.year) || 0,
+        session: fields.session || '', qpUrl: fields.qpUrl || '', msUrl: fields.msUrl || '',
+        resourceType: fields.resourceType || 'owned_content', status: fields.status || 'published',
+        createdBy: 'teacher', createdAt: now(), updatedAt: now()
+      };
+      db.examPapers.push(p);
+      demoSave(db);
+      return Promise.resolve(JSON.parse(JSON.stringify(Object.assign({}, p, { questionCount: 0 }))));
+    },
+    updateExamPaper: function (id, fields) {
+      var db = demoDb();
+      var p = db.examPapers.find(function (x) { return x.id === Number(id); });
+      if (!p) { return Promise.reject(new Error('真题卷不存在')); }
+      ['paperCode', 'qpUrl', 'msUrl', 'resourceType', 'status'].forEach(function (k) {
+        if (fields[k] !== undefined) { p[k] = fields[k]; }
+      });
+      p.updatedAt = now();
+      demoSave(db);
+      return Promise.resolve(JSON.parse(JSON.stringify(p)));
+    },
+    deleteExamPaper: function (id) {
+      var db = demoDb();
+      db.examPapers = db.examPapers.filter(function (p) { return p.id !== Number(id); });
+      db.questions.forEach(function (q) { if (q.examPaperId === Number(id)) { q.examPaperId = null; } });
+      demoSave(db);
+      return Promise.resolve({ ok: true });
+    },
+    examTopics: function (paper) {
+      var db = demoDb();
+      var rows = (db.knowledge || []).filter(function (n) { return n.paperScope === paper; });
+      var parents = rows.filter(function (n) { return !n.parentId; });
+      var topics = parents.map(function (p) {
+        var children = rows.filter(function (n) { return n.parentId === p.id; });
+        var cnt = function (tid) {
+          return db.questions.filter(function (q) { return q.topicId === tid && !q.deletedAt && q.status === '启用'; }).length;
+        };
+        return { id: p.id, name: p.name, count: cnt(p.id),
+                 children: children.map(function (c) { return { id: c.id, name: c.name, count: cnt(c.id) }; }) };
+      });
+      return Promise.resolve({ paper: paper, topics: topics });
+    },
+    favorites: function () {
+      var db = demoDb();
+      var favIds = (db.favorites || []).map(function (f) { return f.questionId; });
+      return Promise.resolve(db.questions.filter(function (q) {
+        return favIds.indexOf(q.id) >= 0 && !q.deletedAt;
+      }).map(function (q) {
+        var d = JSON.parse(JSON.stringify(q));
+        d.usedCount = demoUsedCount(db, q.id);
+        d.favorite = true;
+        return d;
+      }));
+    },
+    addFavorite: function (qid) {
+      var db = demoDb();
+      db.favorites = db.favorites || [];
+      if (!db.favorites.some(function (f) { return f.questionId === Number(qid); })) {
+        db.favorites.push({ user_id: 'teacher', questionId: Number(qid), created_at: now() });
+      }
+      demoSave(db);
+      return Promise.resolve({ ok: true, favorite: true });
+    },
+    removeFavorite: function (qid) {
+      var db = demoDb();
+      db.favorites = (db.favorites || []).filter(function (f) { return f.questionId !== Number(qid); });
+      demoSave(db);
+      return Promise.resolve({ ok: true, favorite: false });
+    },
+    recordGenerated: function (userPaperId, kind) {
+      var db = demoDb();
+      db.generatedFiles = db.generatedFiles || [];
+      db.generatedFiles.push({ userPaperId: Number(userPaperId), kind: kind || 'qp', status: 'success', created_at: now() });
+      demoSave(db);
+      return Promise.resolve({ ok: true });
+    },
+    generatedFiles: function (userPaperId) {
+      var db = demoDb();
+      var list = (db.generatedFiles || []).filter(function (f) {
+        return !userPaperId || f.userPaperId === Number(userPaperId);
+      });
+      return Promise.resolve({ files: list });
+    },
+
     backup: function () {
       var db = demoDb();
       var payload = { meta: { system: 'zujuan-demo', exportedAt: now() }, questions: db.questions,
@@ -1289,6 +1428,16 @@
     stats: function () { return API.mode === 'server' ? API.stats() : Demo.stats(); },
     auditList: function (action) { return API.mode === 'server' ? API.auditList(action) : Demo.auditList(action); },
     changePassword: function (o, n) { return API.mode === 'server' ? API.changePassword(o, n) : Demo.changePassword(o, n); },
+    examPapers: function (filters) { return API.mode === 'server' ? API.examPapers(filters) : Demo.examPapers(filters); },
+    createExamPaper: function (f) { return API.mode === 'server' ? API.createExamPaper(f) : Demo.createExamPaper(f); },
+    updateExamPaper: function (id, f) { return API.mode === 'server' ? API.updateExamPaper(id, f) : Demo.updateExamPaper(id, f); },
+    deleteExamPaper: function (id) { return API.mode === 'server' ? API.deleteExamPaper(id) : Demo.deleteExamPaper(id); },
+    examTopics: function (paper) { return API.mode === 'server' ? API.examTopics(paper) : Demo.examTopics(paper); },
+    favorites: function () { return API.mode === 'server' ? API.favorites() : Demo.favorites(); },
+    addFavorite: function (qid) { return API.mode === 'server' ? API.addFavorite(qid) : Demo.addFavorite(qid); },
+    removeFavorite: function (qid) { return API.mode === 'server' ? API.removeFavorite(qid) : Demo.removeFavorite(qid); },
+    recordGenerated: function (upid, kind) { return API.mode === 'server' ? API.recordGenerated(upid, kind) : Demo.recordGenerated(upid, kind); },
+    generatedFiles: function (upid) { return API.mode === 'server' ? API.generatedFiles(upid) : Demo.generatedFiles(upid); },
     backup: function () { return API.mode === 'server' ? API.backup() : Demo.backup(); },
     restore: function (data) { return API.mode === 'server' ? API.restore(data) : Demo.restore(data); },
     exportQuestions: function () { return API.mode === 'server' ? API.exportQuestions() : Demo.exportQuestions(); },
