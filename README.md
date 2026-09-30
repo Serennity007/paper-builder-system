@@ -1,6 +1,6 @@
 # 国际课程组卷系统（06-组卷系统）
 
-> **文档入口**：[开发协作手册 docs/HANDBOOK.md](docs/HANDBOOK.md)（架构/API 全表/约定/测试/部署/避坑）· [产品需求 docs/PRD.md](docs/PRD.md)（16 章规划与迭代计划）
+> **文档入口**：[使用者操作手册 docs/USER-GUIDE.md](docs/USER-GUIDE.md)（教师/学生分篇操作指引+FAQ）· [开发协作手册 docs/HANDBOOK.md](docs/HANDBOOK.md)（架构/API 全表/约定/测试/部署/避坑）· [产品需求 docs/PRD.md](docs/PRD.md)（16 章规划与迭代计划）
 
 > 成都智慧象留学 · 教研组卷工作台　|　交付日期：2026-09-28（v3 在线答题增强同日）　|　独立于「学生进度追踪系统」的新系统
 
