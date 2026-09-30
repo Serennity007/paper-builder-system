@@ -296,6 +296,48 @@
         openReplace(Number(btn.dataset.idx));
       }
     });
+    // 拖拽排序（PAPER-03 升级：拖到目标题位置，跨大题拖动自动归入目标大题）
+    var dragIdx = null;
+    sectionsBox.addEventListener('dragstart', function (e) {
+      var row = e.target.closest('.ws-q');
+      if (!row) { return; }
+      dragIdx = Number(row.dataset.idx);
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(dragIdx)); } catch (err) { /* IE 兼容 */ }
+    });
+    sectionsBox.addEventListener('dragover', function (e) {
+      var row = e.target.closest('.ws-q');
+      if (!row || dragIdx === null) { return; }
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      sectionsBox.querySelectorAll('.ws-q.drag-over').forEach(function (el) { el.classList.remove('drag-over'); });
+      row.classList.add('drag-over');
+    });
+    sectionsBox.addEventListener('dragleave', function (e) {
+      var row = e.target.closest('.ws-q');
+      if (row) { row.classList.remove('drag-over'); }
+    });
+    sectionsBox.addEventListener('drop', function (e) {
+      var row = e.target.closest('.ws-q');
+      if (!row || dragIdx === null) { return; }
+      e.preventDefault();
+      var targetIdx = Number(row.dataset.idx);
+      if (targetIdx !== dragIdx && targetIdx < paper.items.length && dragIdx < paper.items.length) {
+        var targetItem = paper.items[targetIdx];
+        var moved = paper.items.splice(dragIdx, 1)[0];
+        var insertAt = targetIdx > dragIdx ? targetIdx - 1 : targetIdx;
+        paper.items.splice(insertAt, 0, moved);
+        moved.section = targetItem.section;  // 归入目标大题
+        renderPaper();
+        ZJ.toast('已移动至「' + moved.section + '」');
+      }
+      dragIdx = null;
+      sectionsBox.querySelectorAll('.ws-q.drag-over').forEach(function (el) { el.classList.remove('drag-over'); });
+    });
+    sectionsBox.addEventListener('dragend', function () {
+      dragIdx = null;
+      sectionsBox.querySelectorAll('.ws-q.drag-over').forEach(function (el) { el.classList.remove('drag-over'); });
+    });
     sectionsBox.addEventListener('input', function (e) {
       var input = e.target.closest('.sec-name-input');
       if (input) { renameSection(input.dataset.section, input.value.trim()); }
@@ -462,7 +504,7 @@
         no += 1;
         total += it.score;
         var q = it.question;
-        rows += '<div class="ws-q' + (q.usedCount >= 3 ? ' used-warn' : '') + '">' +
+        rows += '<div class="ws-q' + (q.usedCount >= 3 ? ' used-warn' : '') + '" draggable="true" data-idx="' + i + '">' +
           '<span class="wq-no">' + no + '</span>' +
           '<span class="wq-stem" data-idx="' + i + '" title="点击查看题目全貌">' +
           (q.usedCount >= 3 ? '<span class="pi-warn">已用' + q.usedCount + '次</span> ' : '') +

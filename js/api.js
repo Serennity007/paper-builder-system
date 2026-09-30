@@ -287,6 +287,9 @@
     recordGenerated: function (userPaperId, kind) {
       return API.req('POST', '/api/generated-files', { userPaperId: userPaperId, kind: kind || 'qp' });
     },
+    generatedFiles: function (userPaperId) {
+      return API.req('GET', '/api/generated-files' + (userPaperId ? '?userPaperId=' + encodeURIComponent(userPaperId) : '')).then(function (d) { return { files: d.files }; });
+    },
 
     backup: function () {
       return API.downloadFile('/api/backup', '组卷系统备份_' + window.ZJ.todayStr() + '.json');
@@ -1315,6 +1318,9 @@
       var db = demoDb();
       var list = (db.generatedFiles || []).filter(function (f) {
         return !userPaperId || f.userPaperId === Number(userPaperId);
+      }).map(function (f) {
+        var paper = db.papers.find(function (p) { return p.id === f.userPaperId; });
+        return Object.assign({}, f, { paperName: paper ? paper.name : '' });
       });
       return Promise.resolve({ files: list });
     },

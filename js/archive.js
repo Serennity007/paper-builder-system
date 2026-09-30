@@ -185,6 +185,16 @@
     ['pf-year', 'pf-session', 'pf-diff'].forEach(function (id) {
       document.getElementById(id).addEventListener('change', loadPractice);
     });
+    document.getElementById('pf-search').addEventListener('input', ZJ.debounce(function (e) {
+      practiceFilters.q = e.target.value.trim();
+      loadPractice();
+    }, 300));
+    document.getElementById('pf-dl').addEventListener('click', function () {
+      var pane = document.getElementById('dl-pane');
+      pane.hidden = !pane.hidden;
+      document.getElementById('practice-fav-pane').hidden = true;
+      if (!pane.hidden) { loadDownloads(); }
+    });
     document.getElementById('pf-fav').addEventListener('click', function () {
       document.getElementById('practice-fav-pane').hidden = !document.getElementById('practice-fav-pane').hidden;
       if (!document.getElementById('practice-fav-pane').hidden) { loadFavorites(); }
@@ -219,10 +229,14 @@
     practiceFilters.year = document.getElementById('pf-year').value;
     practiceFilters.session = document.getElementById('pf-session').value;
     practiceFilters.difficulty = document.getElementById('pf-diff').value;
+    var searching = !!(practiceFilters.q && practiceFilters.q.length);
     var filters = {
-      only_exam: '1', page: 1, page_size: 50,
-      exam_paper: paperFilter,
-      topic_id: currentTopicId || '',
+      page: 1, page_size: 50,
+      q: practiceFilters.q || '',
+      // 有关键词时放宽到全库（卡片上标注 真题/练习）；否则仅真题
+      only_exam: searching ? '' : '1',
+      exam_paper: searching ? '' : paperFilter,
+      topic_id: searching ? '' : (currentTopicId || ''),
       year: practiceFilters.year,
       session: practiceFilters.session,
       difficulty: practiceFilters.difficulty
@@ -253,6 +267,29 @@
           '</div></div>';
       }).join('');
       ZJ.renderMath(box);
+    }).catch(function (err) { ZJ.toast(err.message, true); });
+  }
+
+  /* ================= 下载记录 ================= */
+
+  function loadDownloads() {
+    return Data.generatedFiles().then(function (r) {
+      var box = document.getElementById('dl-list');
+      var files = r.files || [];
+      if (!files.length) {
+        box.innerHTML = '<div class="empty-tip" style="padding:24px 0;">暂无生成记录：在组卷台点「保存并打印」后此处出现 QP/MS 记录</div>';
+        return;
+      }
+      box.innerHTML = files.map(function (f) {
+        return '<div class="pq-card"><div class="pq-main">' +
+          '<div class="pq-stem">' + ZJ.esc(f.paperName || ('试卷 #' + f.user_paper_id)) + '</div>' +
+          '<div class="pq-meta"><span class="tag ' + (f.kind === 'ms' ? 'tag-d3' : 'tag-d1') + '">' +
+          (f.kind === 'ms' ? 'Mark Scheme' : 'Question Paper') + '</span>' +
+          '<span class="tag tag-ok">' + f.status + '</span>' +
+          '<span>' + ZJ.fmtDateTime(f.created_at) + '</span></div></div>' +
+          '<a class="btn-mini primary" href="print.html?id=' + f.user_paper_id + '&ver=' + (f.kind === 'ms' ? 'teacher' : 'student') + '" target="_blank">重新打开</a>' +
+          '</div>';
+      }).join('');
     }).catch(function (err) { ZJ.toast(err.message, true); });
   }
 

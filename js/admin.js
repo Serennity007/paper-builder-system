@@ -64,7 +64,7 @@
     document.querySelectorAll('.nav-tab').forEach(function (t) {
       t.classList.toggle('active', t.dataset.tab === name);
     });
-    ['overview', 'bank', 'builder', 'papers', 'exams', 'audit'].forEach(function (tab) {
+    ['overview', 'bank', 'builder', 'papers', 'archive', 'practice', 'exams', 'audit'].forEach(function (tab) {
       document.getElementById('tab-' + tab).hidden = tab !== name;
     });
     if (name === 'overview') { refreshOverview(); }

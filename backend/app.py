@@ -2794,15 +2794,18 @@ def list_generated():
     if err:
         return err
     upid = int(request.args.get("userPaperId") or 0)
+    base = ("SELECT g.*, p.name AS paper_name FROM generated_files g"
+            " JOIN papers p ON p.id=g.user_paper_id")
     if upid:
-        rows = db().execute(
-            "SELECT * FROM generated_files WHERE user_paper_id=? ORDER BY id DESC LIMIT 50", (upid,)
-        ).fetchall()
+        rows = db().execute(base + " WHERE g.user_paper_id=? ORDER BY g.id DESC LIMIT 50", (upid,)).fetchall()
     else:
-        rows = db().execute(
-            "SELECT * FROM generated_files ORDER BY id DESC LIMIT 50"
-        ).fetchall()
-    return jsonify({"files": [dict(r) for r in rows]})
+        rows = db().execute(base + " ORDER BY g.id DESC LIMIT 50").fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["paperName"] = r["paper_name"]
+        out.append(d)
+    return jsonify({"files": out})
 
 
 # ---------------- 审计 ----------------

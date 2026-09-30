@@ -238,6 +238,10 @@
     sealBtn.textContent = sealOn ? '✓ 密封线' : '密封线';
     document.getElementById('print-root').innerHTML = sheetHtml(ver === 'teacher');
     ZJ.renderMath(document.getElementById('print-root'));
+    // BR-06：记录 PDF 生成结果（QP=学生卷 / MS=教师卷），失败不影响预览
+    if (window.ZJ_Data && window.ZJ_Data.recordGenerated) {
+      window.ZJ_Data.recordGenerated(paper.id, ver === 'teacher' ? 'ms' : 'qp').catch(function () {});
+    }
     document.title = paper.name + '（' + VER_NAMES[ver] + '）';
   }
 

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>教研工作台 · 国际课程组卷系统</title>
-  <link rel="stylesheet" href="css/style.css?v=20260928l">
+  <link rel="stylesheet" href="css/style.css?v=20260928p">
 </head>
 <body>
 
@@ -130,7 +130,12 @@
         <input type="number" id="pf-year" placeholder="年份" style="height:38px;width:90px;border:1px solid var(--c-border);border-radius:6px;padding:0 10px;">
         <select id="pf-session"><option value="">全部考季</option><option value="January">January</option><option value="June">June</option></select>
         <select id="pf-diff"><option value="">全部难度</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option></select>
+        <div class="search-box" style="max-width:180px;min-width:140px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="pf-search" placeholder="关键词搜索">
+        </div>
         <button class="btn btn-ghost" id="pf-fav">♥ 我的收藏</button>
+        <button class="btn btn-ghost" id="pf-dl">下载记录</button>
         <span class="result-count" id="practice-count"></span>
       </div>
       <div class="chip-wrap" id="topic-pills" style="margin-bottom:14px;"></div>
@@ -138,6 +143,10 @@
       <div id="practice-fav-pane" hidden style="margin-top:20px;">
         <div class="section-head"><h2>我的收藏</h2></div>
         <div id="fav-list"></div>
+      </div>
+      <div id="dl-pane" hidden style="margin-top:20px;">
+        <div class="section-head"><h2>下载记录</h2><span class="sec-note">QP = Question Paper · MS = Mark Scheme</span></div>
+        <div id="dl-list"></div>
       </div>
     </section>
 
@@ -727,12 +736,12 @@
     </div>
   </div>
 
-  <script src="js/common.js?v=20260928l"></script>
-  <script src="js/mock-data.js?v=20260928l"></script>
-  <script src="js/api.js?v=20260928l"></script>
-  <script src="js/admin.js?v=20260928l"></script>
-  <script src="js/builder.js?v=20260928l"></script>
-  <script src="js/exams.js?v=20260928l"></script>
-  <script src="js/archive.js?v=20260928l"></script>
+  <script src="js/common.js?v=20260928p"></script>
+  <script src="js/mock-data.js?v=20260928p"></script>
+  <script src="js/api.js?v=20260928p"></script>
+  <script src="js/admin.js?v=20260928p"></script>
+  <script src="js/builder.js?v=20260928p"></script>
+  <script src="js/exams.js?v=20260928p"></script>
+  <script src="js/archive.js?v=20260928p"></script>
 </body>
 </html>
