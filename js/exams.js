@@ -81,7 +81,7 @@
                 '<button class="btn-mini danger" data-act="del" data-id="' + e.id + '">删除</button>' +
                 '</div></td></tr>';
             }).join('') + '</tbody></table></div>'
-          : '<div class="card"><div class="empty-tip"><div class="et-icon">📝</div>还没有考试：用「试卷库」里的试卷创建一场，考后按题录分自动生成统计报告</div></div>');
+          : '<div class="card"><div class="empty-tip">还没有考试：用「试卷库」里的试卷创建一场，考后按题录分自动生成统计报告</div></div>');
       root.querySelector('#btn-open-exam-modal').addEventListener('click', openExamModal);
     }).catch(function (err) { ZJ.toast(err.message, true); });
   }

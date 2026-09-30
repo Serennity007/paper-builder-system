@@ -485,7 +485,7 @@
     document.getElementById('pool-target-hint').textContent =
       activeSection ? ('点 + 加入 → ' + activeSection) : '加入后自动按题型建大题';
     if (!paper.items.length) {
-      box.innerHTML = '<div class="empty-tip" style="padding:34px 0;"><div class="et-icon">🧩</div>' +
+      box.innerHTML = '<div class="empty-tip" style="padding:34px 0;">' +
         '从左侧试题池点 <b>+</b> 开始组卷；或点「按配置生成」自动配卷</div>';
       renderStats();
       return;

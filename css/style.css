@@ -22,9 +22,9 @@
   --c-danger-soft: #F6E8E5;
   --c-done: #4A7A5E;
   --c-done-soft: #E7EFE7;
-  --radius: 10px;
-  --shadow: 0 2px 12px rgba(14, 27, 44, 0.06);
-  --shadow-hover: 0 10px 28px rgba(14, 27, 44, 0.12);
+  --radius: 6px;
+  --shadow: 0 1px 3px rgba(14, 27, 44, 0.07), 0 1px 2px rgba(14, 27, 44, 0.04);
+  --shadow-hover: 0 3px 12px rgba(14, 27, 44, 0.11);
   --f-serif: "DengXian", "DengXian Light", "Microsoft YaHei", "PingFang SC", sans-serif;
   --f-num: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 }
@@ -35,8 +35,8 @@ body {
   font-family: "DengXian", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", sans-serif;
   background: var(--c-bg);
   color: var(--c-text);
-  font-size: 15px;
-  line-height: 1.65;
+  font-size: 14px;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
 a { color: inherit; text-decoration: none; }
@@ -48,11 +48,11 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--c-
 .topbar {
   background: var(--c-navy);
   color: #F5F0E4;
-  height: 62px;
+  height: 56px;
   display: flex;
   align-items: center;
-  padding: 0 30px;
-  gap: 14px;
+  padding: 0 24px;
+  gap: 12px;
   position: sticky;
   top: 0;
   z-index: 50;
@@ -63,7 +63,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--c-
   align-items: center;
   gap: 11px;
   font-family: var(--f-serif);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.5px;
   white-space: nowrap;
@@ -129,20 +129,20 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--c-
 /* ================= 页签导航 ================= */
 .nav-tabs {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   background: var(--c-card);
   border: 1px solid var(--c-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 6px;
-  margin-bottom: 24px;
+  padding: 4px;
+  margin-bottom: 20px;
   position: sticky;
-  top: 74px;
+  top: 68px;
   z-index: 40;
 }
 .nav-tab {
   flex: 1;
-  height: 40px;
+  height: 36px;
   border: none;
   background: transparent;
   border-radius: 6px;
@@ -202,12 +202,12 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--c-
   align-items: baseline;
   justify-content: space-between;
   gap: 12px;
-  margin: 26px 0 16px;
+  margin: 20px 0 12px;
 }
 .section-head:first-child { margin-top: 0; }
 .section-head h2 {
   font-family: var(--f-serif);
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--c-navy-2);
   letter-spacing: 0.5px;
@@ -228,7 +228,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--c-
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   border: 1px solid var(--c-border);
-  padding: 22px 24px;
+  padding: 18px 20px;
 }
 .stat-grid {
   display: grid;
@@ -241,15 +241,15 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--c-
   box-shadow: var(--shadow);
   border: 1px solid var(--c-border);
   border-top: 2px solid var(--c-gold);
-  padding: 20px 22px;
+  padding: 14px 18px;
   display: flex;
   align-items: center;
   gap: 16px;
   transition: transform 0.2s, box-shadow 0.2s;
 }
-.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+.stat-card:hover { box-shadow: var(--shadow-hover); border-color: rgba(201, 168, 92, 0.45); }
 .stat-icon {
-  width: 48px; height: 48px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   border: 1px solid var(--c-border);
   background: var(--c-bg);
@@ -261,7 +261,7 @@ input, select, textarea { font-family: inherit; font-size: 14px; color: var(--c-
 .stat-icon.navy { color: var(--c-navy-2); }
 .stat-meta .stat-value {
   font-family: var(--f-num);
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--c-navy-2);
   line-height: 1.2;
@@ -364,16 +364,15 @@ table.data {
 table.data th {
   text-align: left;
   font-weight: 600;
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--c-text-sub);
-  letter-spacing: 0.5px;
   background: #F6F2E9;
-  padding: 11px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--c-border);
   white-space: nowrap;
 }
 table.data td {
-  padding: 12px 14px;
+  padding: 9px 12px;
   border-bottom: 1px solid #F0EBE0;
   vertical-align: top;
 }
@@ -395,11 +394,10 @@ td.cell-stem { max-width: 380px; }
 /* ================= 标签 ================= */
 .tag {
   display: inline-block;
-  font-size: 12px;
-  padding: 2px 10px;
+  font-size: 11px;
+  padding: 1px 7px;
   border-radius: 3px;
   white-space: nowrap;
-  letter-spacing: 0.5px;
 }
 .tag-subject { background: var(--c-gold-soft); color: var(--c-gold-deep); }
 .tag-type { background: #ECEFF3; color: var(--c-navy-2); }
@@ -414,12 +412,11 @@ td.cell-stem { max-width: 380px; }
 /* ================= 按钮 ================= */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-  height: 38px;
-  padding: 0 18px;
-  border-radius: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 5px;
   border: 1px solid transparent;
-  font-size: 14px;
-  letter-spacing: 0.3px;
+  font-size: 13.5px;
   transition: all 0.2s;
   white-space: nowrap;
 }
@@ -488,10 +485,10 @@ td.cell-stem { max-width: 380px; }
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  height: 28px;
-  padding: 0 12px;
+  height: 26px;
+  padding: 0 10px;
   border: 1px solid var(--c-border);
-  border-radius: 999px;
+  border-radius: 4px;
   font-size: 13px;
   background: #fff;
   color: var(--c-text-sub);
@@ -672,7 +669,7 @@ td.cell-stem { max-width: 380px; }
   flex-direction: column;
   gap: 12px;
 }
-.paper-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); border-color: rgba(201, 168, 92, 0.7); }
+.paper-card:hover { box-shadow: var(--shadow-hover); border-color: rgba(201, 168, 92, 0.55); }
 .paper-card .pc-head { display: flex; align-items: flex-start; gap: 10px; }
 .paper-card .pc-name {
   font-family: var(--f-serif);
@@ -777,7 +774,7 @@ td.cell-stem { max-width: 380px; }
   font-size: 14px;
   grid-column: 1 / -1;
 }
-.empty-tip .et-icon { font-size: 30px; margin-bottom: 10px; opacity: 0.5; }
+.empty-tip .et-icon { display: none; }
 
 /* ================= 头像 ================= */
 .avatar {

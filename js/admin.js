@@ -162,7 +162,7 @@
             '<a class="btn-mini" href="print.html?id=' + p.id + '&ver=teacher" target="_blank">教师卷</a>' +
             '</div>';
         }).join('')
-        : '<div class="empty-tip"><div class="et-icon">📄</div>还没有试卷，去「组卷台」生成第一套吧</div>';
+        : '<div class="empty-tip">还没有试卷，去「组卷台」生成第一套吧</div>';
     }).catch(function (err) { ZJ.toast(err.message, true); });
   }
 
@@ -208,7 +208,7 @@
     selectedIds.clear();
     updateBatchBar();
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-tip"><div class="et-icon">🗃</div>没有符合条件的题目，换个筛选条件或新增试题</div></td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8"><div class="empty-tip">没有符合条件的题目，换个筛选条件或新增试题</div></td></tr>';
       return;
     }
     tbody.innerHTML = list.map(function (q) {
@@ -738,7 +738,7 @@
       var grid = document.getElementById('paper-grid');
       document.getElementById('p-count').textContent = list.length ? '共 ' + list.length + ' 套试卷' : '';
       if (!list.length) {
-        grid.innerHTML = '<div class="empty-tip"><div class="et-icon">📄</div>还没有试卷：去「组卷台」智能生成，或从题库手动挑题组卷</div>';
+        grid.innerHTML = '<div class="empty-tip">还没有试卷：去「组卷台」智能生成，或从题库手动挑题组卷</div>';
         return;
       }
       grid.innerHTML = list.map(function (p) {
