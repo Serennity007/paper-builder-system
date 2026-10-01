@@ -19,7 +19,7 @@
     QTYPE_CATALOG: QTYPE_CATALOG,
     DIFFICULTY_LABELS: DIFFICULTY_LABELS,
     SUBJECT_CATALOG: SUBJECT_CATALOG,
-    VER: 'v=20261001c',
+    VER: 'v=20261001d',
 
     /** HTML 转义 */
     esc: function (s) {

@@ -87,8 +87,8 @@ python server.py          # 纯静态演示模式：sessionStorage，关标签�
 
 ## 工程约定（改版必读）
 
-1. 静态资源版本参数 `?v=20261001b`，**改 css/js 后必须升版本号**（两种启动方式都发 no-cache 头）
-2. 视觉规范：2026-10-01 起升版为「纸阅 Atelier」设计系统（`css/style.css` 顶部 tokens）：墨蓝 #0E1B2C 系 × 香槟金 #C9A85C 系 × 暖纸面 #F4F1E9，DengXian/雅黑 + Segoe UI（数字 tabular-nums），金色只做点缀；动效层 `js/micro.js`（进场编排/数字滚动/分布条生长/按钮涟漪，尊重 prefers-reduced-motion，可整体降级）；水印 made by Jessie 保留
+1. 静态资源版本参数 `?v=20261001d`，**改 css/js 后必须升版本号**（两种启动方式都发 no-cache 头）
+2. 视觉规范：2026-10-01 起升版为「纸阅 Atelier」设计系统（`css/style.css` 顶部 tokens）：墨蓝 #0E1B2C 系 × 香槟金 #C9A85C 系 × 暖纸面 #F4F1E9，**标题性文字用霞鹜文楷屏显版**（`vendor/lxgw/` 离线分片 webfont，OFL 许可；操作性文字保持 DengXian/雅黑，数字用 Segoe/文楷），金色只做点缀；动效层 `js/micro.js`（进场编排/数字滚动/分布条生长/按钮涟漪，尊重 prefers-reduced-motion，可整体降级）；水印 made by Jessie 保留
 3. Excel 导入列规范见模板「填写说明」sheet；公式用 `$...$` 包裹（LaTeX 语法）
 4. 删除试题 = 软删除进回收站；彻底删除仅在回收站内操作
 5. 上传文件存 `backend/uploads/`（图片 ≤5MB、音频 ≤20MB），备份 JSON 不含上传文件，迁移时请一并拷贝
