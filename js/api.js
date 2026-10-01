@@ -299,6 +299,31 @@
           throw err;
         });
     },
+    sourcePages: function (id, kind) {
+      return API.req('GET', '/api/exam-papers/' + encodeURIComponent(id) + '/pages/' + kind);
+    },
+    privateImage: function (path) {
+      return fetch(path, { headers: { Authorization: 'Bearer ' + API.token }, cache: 'no-store' })
+        .then(function (res) {
+          if (!res.ok) { throw new Error('私有页面预览失败（' + res.status + '）'); }
+          return res.blob();
+        }).then(function (blob) { return URL.createObjectURL(blob); });
+    },
+    sourcePageImage: function (id, kind, index) {
+      return API.privateImage('/api/exam-papers/' + encodeURIComponent(id) + '/pages/' + kind + '/' + index + '.png');
+    },
+    sourceQuestions: function (id) {
+      return API.req('GET', '/api/exam-papers/' + encodeURIComponent(id) + '/source-questions').then(function (d) { return d.questions; });
+    },
+    createSourceQuestion: function (id, fields) {
+      return API.req('POST', '/api/exam-papers/' + encodeURIComponent(id) + '/source-questions', fields).then(function (d) { return d.question; });
+    },
+    sourceQuestion: function (id) {
+      return API.req('GET', '/api/source-questions/' + encodeURIComponent(id)).then(function (d) { return d.question; });
+    },
+    sourceRegionImage: function (qid, rid) {
+      return API.privateImage('/api/source-questions/' + encodeURIComponent(qid) + '/regions/' + encodeURIComponent(rid) + '.png');
+    },
     examTopics: function (paper) {
       return API.req('GET', '/api/exam-topics?paper=' + encodeURIComponent(paper)).then(function (d) { return d; });
     },
@@ -1484,6 +1509,12 @@
     deleteExamPaper: function (id) { return API.mode === 'server' ? API.deleteExamPaper(id) : Demo.deleteExamPaper(id); },
     uploadExamPaperPdf: function (id, kind, file) { return API.mode === 'server' ? API.uploadExamPaperPdf(id, kind, file) : Promise.reject(new Error('请启动正式后端后上传原始 PDF')); },
     previewExamPaperPdf: function (id, kind) { return API.mode === 'server' ? API.previewExamPaperPdf(id, kind) : Promise.reject(new Error('静态演示模式无法预览私有 PDF')); },
+    sourcePages: function (id, kind) { return API.mode === 'server' ? API.sourcePages(id, kind) : Promise.reject(new Error('请从正式后台访问完整原卷')); },
+    sourcePageImage: function (id, kind, index) { return API.mode === 'server' ? API.sourcePageImage(id, kind, index) : Promise.reject(new Error('静态模式无法预览私有页面')); },
+    sourceQuestions: function (id) { return API.mode === 'server' ? API.sourceQuestions(id) : Promise.reject(new Error('静态模式无法查看私有草稿')); },
+    createSourceQuestion: function (id, fields) { return API.mode === 'server' ? API.createSourceQuestion(id, fields) : Promise.reject(new Error('请从正式后台结构化大题')); },
+    sourceQuestion: function (id) { return API.mode === 'server' ? API.sourceQuestion(id) : Promise.reject(new Error('静态模式无法查看私有草稿')); },
+    sourceRegionImage: function (qid, rid) { return API.mode === 'server' ? API.sourceRegionImage(qid, rid) : Promise.reject(new Error('静态模式无法查看私有草稿')); },
     examTopics: function (paper) { return API.mode === 'server' ? API.examTopics(paper) : Demo.examTopics(paper); },
     favorites: function () { return API.mode === 'server' ? API.favorites() : Demo.favorites(); },
     addFavorite: function (qid) { return API.mode === 'server' ? API.addFavorite(qid) : Demo.addFavorite(qid); },

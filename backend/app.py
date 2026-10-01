@@ -38,8 +38,10 @@ Flask + SQLite 零配置实现，与学生进度追踪系统（端口 8686）同
 """
 import hashlib
 import json
+import math
 import os
 import random
+import re
 import secrets
 import sqlite3
 from datetime import date, datetime, timedelta
@@ -295,6 +297,18 @@ def ensure_schema():
         c.execute("ALTER TABLE questions ADD COLUMN subtopic_id INTEGER")
     if "answer_image_url" not in qcols:
         c.execute("ALTER TABLE questions ADD COLUMN answer_image_url TEXT DEFAULT ''")
+    if "content_mode" not in qcols:
+        c.execute("ALTER TABLE questions ADD COLUMN content_mode TEXT NOT NULL DEFAULT 'legacy'")
+    c.execute("""CREATE TABLE IF NOT EXISTS question_regions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question_id INTEGER NOT NULL REFERENCES questions(id) ON DELETE CASCADE,
+        kind TEXT NOT NULL CHECK(kind IN ('qp','ms')),
+        sort_order INTEGER NOT NULL CHECK(sort_order >= 0),
+        source_file TEXT NOT NULL,
+        page_index INTEGER NOT NULL CHECK(page_index >= 0),
+        x0 REAL NOT NULL, y0 REAL NOT NULL, x1 REAL NOT NULL, y1 REAL NOT NULL,
+        UNIQUE(question_id, kind, sort_order)
+    )""")
     epcols = {r[1] for r in c.execute("PRAGMA table_info(exam_papers)").fetchall()}
     for name, definition in {
         "qp_source": "TEXT DEFAULT ''", "ms_source": "TEXT DEFAULT ''",
@@ -898,6 +912,8 @@ def update_question(qid):
     row = db().execute("SELECT * FROM questions WHERE id=?", (qid,)).fetchone()
     if not row:
         return jsonify({"error": "试题不存在"}), 404
+    if row["content_mode"] == "pdf_regions":
+        return jsonify({"error": "原卷结构化草稿须通过专用流程审核，不能使用旧题目编辑器"}), 409
     if not row["is_public"] and user["role"] != "admin" and row["created_by"] != user["account"]:
         return jsonify({"error": "该题为他人私有题目，无权编辑"}), 403
     body = request.get_json(silent=True) or {}
@@ -1015,6 +1031,10 @@ def batch_questions():
     if not ids:
         return jsonify({"error": "请先勾选题目"}), 400
     conn = db()
+    if action == "enable" and conn.execute(
+        f"SELECT 1 FROM questions WHERE id IN ({','.join('?' * len(ids))}) AND content_mode='pdf_regions' LIMIT 1", ids
+    ).fetchone():
+        return jsonify({"error": "原卷结构化草稿未经教研审核，不得批量启用"}), 409
     now = datetime.now().isoformat(timespec="seconds")
     if action in ("enable", "disable"):
         status = "启用" if action == "enable" else "停用"
@@ -1560,6 +1580,16 @@ def upsert_paper(pid, user):
     items = body.get("items") or []
     if not items:
         return jsonify({"error": "试卷至少需要一道试题"}), 400
+    try:
+        ids = [int(item.get("questionId") or 0) for item in items]
+    except (TypeError, ValueError, AttributeError):
+        return jsonify({"error": "题目编号无效"}), 400
+    if any(qid <= 0 for qid in ids):
+        return jsonify({"error": "题目编号无效"}), 400
+    if db().execute(
+        f"SELECT 1 FROM questions WHERE id IN ({','.join('?' * len(ids))}) AND content_mode='pdf_regions' LIMIT 1", ids
+    ).fetchone():
+        return jsonify({"error": "原卷结构化草稿未经教研审核，不得加入组卷"}), 409
     subject_line = str(body.get("subjectLine", "")).strip()
     remark = str(body.get("remark", "")).strip()
     try:
@@ -1918,6 +1948,8 @@ def restore_all():
     if any(k not in data for k in required):
         return jsonify({"error": "备份文件不完整（缺少必要数据表）"}), 400
     conn = db()
+    if conn.execute("SELECT 1 FROM question_regions LIMIT 1").fetchone():
+        return jsonify({"error": "旧版 JSON 备份不含原卷 PDF 与题目区域，存在结构化题时禁止覆盖恢复；请使用成套 SQLite+私有文件备份"}), 409
     for table in ("exam_scores", "exam_candidates", "exams", "blueprints", "roster",
                   "paper_items", "papers", "questions", "subjects"):
         conn.execute(f"DELETE FROM {table}")
@@ -2758,6 +2790,8 @@ def delete_exam_paper(epid):
     row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
     if not row:
         return jsonify({"error": "真题卷不存在"}), 404
+    if db().execute("SELECT 1 FROM questions WHERE exam_paper_id=? AND content_mode='pdf_regions' LIMIT 1", (epid,)).fetchone():
+        return jsonify({"error": "原卷已有关联的结构化题目；为保留来源，不允许删除"}), 409
     conn = db()
     conn.execute("UPDATE questions SET exam_paper_id=NULL WHERE exam_paper_id=?", (epid,))
     conn.execute("DELETE FROM exam_papers WHERE id=?", (epid,))
@@ -2838,6 +2872,231 @@ def preview_exam_paper_pdf(epid, kind):
                      download_name=f"Edexcel_{row['paper_name']}_{row['year']}_{row['session']}_{kind.upper()}.pdf")
     resp.headers["X-Content-Type-Options"] = "nosniff"
     return resp
+
+
+# Phase 1B: human-selected, ordered regions of the private source PDFs.
+# These endpoints never serve the PDF or its rendered pages without teacher authentication.
+def source_pdf(row, kind, pinned_file=None):
+    filename = pinned_file or row[kind + "_file"]
+    if not filename or os.path.basename(filename) != filename or not re.fullmatch(r"(qp|ms)_[0-9a-f]{32}\.pdf", filename):
+        return None
+    path = os.path.join(PRIVATE_PDF_DIR, str(row["id"]), filename)
+    return path if os.path.isfile(path) else None
+
+
+def open_source_pdf(row, kind, pinned_file=None):
+    import pymupdf
+    path = source_pdf(row, kind, pinned_file)
+    if not path:
+        return None
+    try:
+        document = pymupdf.open(path)
+        if document.needs_pass or not 0 < len(document) <= 200:
+            document.close()
+            return None
+        return document
+    except (pymupdf.FileDataError, ValueError, OSError):
+        return None
+
+
+def private_png(png):
+    import io
+    resp = send_file(io.BytesIO(png), mimetype="image/png")
+    resp.headers["Cache-Control"] = "private, no-store"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
+
+
+def render_source_page(document, index, box=None):
+    import pymupdf
+    if index < 0 or index >= len(document):
+        return None
+    page = document[index]
+    rect = page.rect
+    if box:
+        clip = pymupdf.Rect(rect.x0 + box[0] * rect.width, rect.y0 + box[1] * rect.height,
+                            rect.x0 + box[2] * rect.width, rect.y0 + box[3] * rect.height)
+    else:
+        clip = rect
+    scale = min(1.6 if box is None else 2.0, 2400 / max(clip.width, clip.height))
+    return page.get_pixmap(matrix=pymupdf.Matrix(scale, scale), clip=clip,
+                           alpha=False).tobytes("png")
+
+
+@app.get("/api/exam-papers/<int:epid>/pages/<kind>")
+def source_pages(epid, kind):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    if kind not in ("qp", "ms"):
+        return jsonify({"error": "文件类型无效"}), 400
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row:
+        return jsonify({"error": "真题卷不存在"}), 404
+    document = open_source_pdf(row, kind)
+    if not document:
+        return jsonify({"error": "PDF 不可用或无法解析"}), 422
+    with document:
+        return jsonify({"pageCount": len(document), "paperName": row["paper_name"],
+                        "year": row["year"], "session": row["session"]})
+
+
+@app.get("/api/exam-papers/<int:epid>/pages/<kind>/<int:index>.png")
+def source_page_png(epid, kind, index):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    if kind not in ("qp", "ms"):
+        return jsonify({"error": "文件类型无效"}), 400
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row:
+        return jsonify({"error": "真题卷不存在"}), 404
+    document = open_source_pdf(row, kind)
+    if not document:
+        return jsonify({"error": "PDF 不可用或无法解析"}), 422
+    with document:
+        image = render_source_page(document, index)
+    return private_png(image) if image else (jsonify({"error": "页码超出原卷范围"}), 404)
+
+
+def validate_region_list(items, document):
+    if not isinstance(items, list) or len(items) > 12:
+        raise ValueError("每种资源最多选择 12 个区域")
+    validated = []
+    for item in items:
+        if not isinstance(item, dict) or type(item.get("pageIndex")) is not int:
+            raise ValueError("页码必须为原卷中的有效页码")
+        index = item["pageIndex"]
+        if index < 0 or index >= len(document):
+            raise ValueError("页码超出原卷范围")
+        box = item.get("box")
+        if not isinstance(box, list) or len(box) != 4 or any(type(x) not in (float, int) or not math.isfinite(x) for x in box):
+            raise ValueError("请选择有效的页面区域")
+        x0, y0, x1, y1 = box
+        if not (0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1 and x1 - x0 >= .02 and y1 - y0 >= .02):
+            raise ValueError("页面区域超出范围或太小")
+        validated.append((index, [float(x) for x in box]))
+    return validated
+
+
+def source_question_payload(question):
+    regions = db().execute(
+        "SELECT id, kind, sort_order, page_index, x0, y0, x1, y1 FROM question_regions "
+        "WHERE question_id=? ORDER BY kind DESC, sort_order", (question["id"],)
+    ).fetchall()
+    return {"id": question["id"], "examPaperId": question["exam_paper_id"],
+            "paperName": db().execute("SELECT paper_name FROM exam_papers WHERE id=?", (question["exam_paper_id"],)).fetchone()[0],
+            "originalQuestionNumber": question["question_number"], "reviewStatus": "pending",
+            "publishStatus": "draft", "regions": [
+                {"id": r["id"], "kind": r["kind"], "sortOrder": r["sort_order"],
+                 "pageIndex": r["page_index"], "box": [r["x0"], r["y0"], r["x1"], r["y1"]]}
+                for r in regions]}
+
+
+@app.get("/api/exam-papers/<int:epid>/source-questions")
+def list_source_questions(epid):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    row = db().execute("SELECT id FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row:
+        return jsonify({"error": "真题卷不存在"}), 404
+    rows = db().execute("SELECT * FROM questions WHERE exam_paper_id=? AND content_mode='pdf_regions' "
+                        "AND deleted_at IS NULL" + ("" if user["role"] == "admin" else " AND created_by=?") + " ORDER BY id",
+                        (epid,) if user["role"] == "admin" else (epid, user["account"])).fetchall()
+    return jsonify({"questions": [source_question_payload(question) for question in rows]})
+
+
+@app.post("/api/exam-papers/<int:epid>/source-questions")
+def create_source_question(epid):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row or row["paper_name"] not in ("P1", "P2") or row["exam_board"] != "Edexcel":
+        return jsonify({"error": "只支持已有的 Edexcel P1/P2 原卷"}), 404
+    body = request.get_json(silent=True) or {}
+    number = str(body.get("originalQuestionNumber", "")).strip()
+    if not re.fullmatch(r"[1-9][0-9]{0,2}", number):
+        return jsonify({"error": "请填写完整大题的原生题号（不含小问）"}), 400
+    if body.get("selectionAcknowledged") is not True:
+        return jsonify({"error": "请先预览初选区域；正式边界与 QP/MS 对应仍待教研验收"}), 400
+    if db().execute("SELECT 1 FROM questions WHERE exam_paper_id=? AND question_number=? AND content_mode='pdf_regions' AND deleted_at IS NULL", (epid, number)).fetchone():
+        return jsonify({"error": "该原卷题号已存在，请重新打开核对"}), 409
+    documents = {}
+    try:
+        for kind in ("qp", "ms"):
+            documents[kind] = open_source_pdf(row, kind)
+        if not documents["qp"]:
+            return jsonify({"error": "原卷 QP 不可用"}), 422
+        qp = validate_region_list(body.get("qpRegions"), documents["qp"])
+        if not qp:
+            return jsonify({"error": "至少选择一个 QP 区域"}), 400
+        ms_input = body.get("msRegions", [])
+        if ms_input and not documents["ms"]:
+            return jsonify({"error": "原卷 MS 不可用"}), 422
+        ms = validate_region_list(ms_input, documents["ms"]) if documents["ms"] else []
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    finally:
+        for document in documents.values():
+            if document:
+                document.close()
+    now = datetime.now().isoformat(timespec="seconds")
+    conn = db()
+    try:
+        conn.execute("INSERT INTO questions(subject,qtype,stem,options,answer,score,duration,source,status,is_public,exam_paper_id,question_number,content_mode,created_by,created_at,updated_at) "
+                     "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                     ("A-Level 数学", "简答题", f"{row['paper_name']} {row['year']} {row['session']} · 原题 {number}（待教研审核）",
+                      "[]", "", 0, 0, "Pearson Edexcel IAL Mathematics", "停用", 0, epid, number,
+                      "pdf_regions", user["account"], now, now))
+        qid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
+        for kind, items in (("qp", qp), ("ms", ms)):
+            for order, (index, box) in enumerate(items):
+                conn.execute("INSERT INTO question_regions(question_id,kind,sort_order,source_file,page_index,x0,y0,x1,y1) "
+                             "VALUES(?,?,?,?,?,?,?,?,?)", (qid, kind, order, row[kind + "_file"], index, *box))
+        log_action(user, "结构化原卷大题草稿", str(epid), f"原题 {number}，QP {len(qp)} 区域，MS {len(ms)} 区域")
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return jsonify({"question": source_question_payload(conn.execute("SELECT * FROM questions WHERE id=?", (qid,)).fetchone())})
+
+
+@app.get("/api/source-questions/<int:qid>")
+def get_source_question(qid):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    question = db().execute("SELECT * FROM questions WHERE id=? AND content_mode='pdf_regions' AND deleted_at IS NULL", (qid,)).fetchone()
+    if not question:
+        return jsonify({"error": "结构化题目不存在"}), 404
+    if user["role"] != "admin" and question["created_by"] != user["account"]:
+        return jsonify({"error": "仅创建者或管理员可查看草稿"}), 403
+    return jsonify({"question": source_question_payload(question)})
+
+
+@app.get("/api/source-questions/<int:qid>/regions/<int:rid>.png")
+def source_question_region_png(qid, rid):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    question = db().execute("SELECT * FROM questions WHERE id=? AND content_mode='pdf_regions' AND deleted_at IS NULL", (qid,)).fetchone()
+    if not question:
+        return jsonify({"error": "结构化题目不存在"}), 404
+    if user["role"] != "admin" and question["created_by"] != user["account"]:
+        return jsonify({"error": "仅创建者或管理员可查看草稿"}), 403
+    region = db().execute("SELECT * FROM question_regions WHERE id=? AND question_id=?", (rid, qid)).fetchone()
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (question["exam_paper_id"],)).fetchone()
+    if not region or not row:
+        return jsonify({"error": "资源不存在"}), 404
+    document = open_source_pdf(row, region["kind"], region["source_file"])
+    if not document:
+        return jsonify({"error": "原始 PDF 不可用"}), 404
+    with document:
+        image = render_source_page(document, region["page_index"],
+                                   [region[k] for k in ("x0", "y0", "x1", "y1")])
+    return private_png(image) if image else (jsonify({"error": "原始 PDF 页码无效"}), 404)
 
 
 @app.get("/api/exam-topics")

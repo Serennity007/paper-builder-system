@@ -15,6 +15,9 @@
   var archiveFilters = { paper: '全部', year: '', session: '', status: '全部状态' };
   var epCache = [];                // 真题卷缓存
   var pendingPdfs = { qp: null, ms: null };
+  var sourceState = null;
+  var sourceUrls = [];
+  var sourceLoad = 0;
 
   function init(ctx) {
     try {
@@ -57,6 +60,8 @@
       else if (act === 'preview-qp' || act === 'preview-ms') {
         Data.previewExamPaperPdf(id, act.slice(8)).catch(function (err) { ZJ.toast(err.message, true); });
       }
+      else if (act === 'create-source') { openSourceQuestion(id); }
+      else if (act === 'open-source') { openSavedSource(id); }
     });
     ['ar-paper', 'ar-year', 'ar-session', 'ar-status'].forEach(function (id) {
       document.getElementById(id).addEventListener('change', function () {
@@ -68,6 +73,7 @@
       });
     });
     document.getElementById('btn-ep-save').addEventListener('click', saveExamPaper);
+    bindSourceQuestion();
     // QP/MS 上传（编辑弹窗内）
     document.getElementById('btn-ep-qp').addEventListener('click', function () { document.getElementById('ep-qp-file').click(); });
     document.getElementById('btn-ep-ms').addEventListener('click', function () { document.getElementById('ep-ms-file').click(); });
@@ -112,11 +118,34 @@
           '<td><div class="row-actions">' +
           (p.qpAvailable ? '<button class="btn-mini primary" data-act="preview-qp" data-id="' + p.id + '">QP</button>' : '<span class="cell-sub">QP 未传</span>') +
           (p.msAvailable ? '<button class="btn-mini primary" data-act="preview-ms" data-id="' + p.id + '">MS</button>' : '<span class="cell-sub">MS 未传</span>') +
+          (p.qpAvailable && Data.mode === 'server' ? '<button class="btn-mini gold" data-act="create-source" data-id="' + p.id + '">创建大题</button>' : '') +
           '<button class="btn-mini gold" data-act="edit" data-id="' + p.id + '">编辑</button>' +
           '<button class="btn-mini danger" data-act="del" data-id="' + p.id + '">删除</button>' +
           '</div></td></tr>';
       }).join('');
+      return loadSourceDrafts(list);
     }).catch(function (err) { ZJ.toast(err.message, true); });
+  }
+
+  function loadSourceDrafts(papers) {
+    var area = document.getElementById('ar-source-drafts');
+    if (Data.mode !== 'server') {
+      area.textContent = '静态演示模式不包含原卷 PDF 或结构化大题，请从正式后端打开后台。';
+      return Promise.resolve();
+    }
+    return Promise.all(papers.filter(function (p) { return p.qpAvailable; }).map(function (p) {
+      return Data.sourceQuestions(p.id);
+    })).then(function (lists) {
+      var drafts = [].concat.apply([], lists);
+      area.innerHTML = drafts.length ? drafts.map(function (q) {
+        var qp = q.regions.filter(function (r) { return r.kind === 'qp'; }).length;
+        var ms = q.regions.length - qp;
+        return '<div style="padding:8px;border-bottom:1px solid #e4e8ed;">' +
+          ZJ.esc(q.paperName) + ' · 原题 ' + ZJ.esc(q.originalQuestionNumber) + ' · ' +
+          qp + ' 个 QP 区域 / ' + ms + ' 个 MS 区域 · <strong>待教研审核，未发布</strong> ' +
+          '<button class="btn-mini primary" data-act="open-source" data-id="' + q.id + '">重新打开预览 #' + q.id + '</button></div>';
+      }).join('') : '当前筛选范围内没有结构化大题草稿。';
+    });
   }
 
   function openExamPaperModal(id) {
@@ -166,6 +195,249 @@
       ZJ.closeModal('modal-exampaper');
       loadArchive();
     }).catch(function (err) { ZJ.toast('元数据可能已保存；PDF 上传失败时请重新打开记录检查。' + err.message, true); loadArchive(); });
+  }
+
+  /* ================= Phase 1B · 从原卷人工建立完整大题 ================= */
+  function clearSourceUrls() {
+    sourceLoad++;
+    sourceUrls.forEach(function (url) { URL.revokeObjectURL(url); });
+    sourceUrls = [];
+  }
+
+  function bindSourceQuestion() {
+    var stage = document.getElementById('sq-stage');
+    var kindControl = document.getElementById('sq-kind');
+    kindControl.addEventListener('change', function () { displaySourcePage(); });
+    document.getElementById('sq-prev').addEventListener('click', function () { changeSourcePage(-1); });
+    document.getElementById('sq-next').addEventListener('click', function () { changeSourcePage(1); });
+    document.getElementById('sq-page').addEventListener('change', function () {
+      if (!sourceState) { return; }
+      var kind = kindControl.value;
+      sourceState.pages[kind] = Math.max(0, Math.min(sourceState.counts[kind] - 1, Number(this.value || 1) - 1));
+      displaySourcePage();
+    });
+    document.getElementById('sq-add-full').addEventListener('click', function () { addSourceRegion([0, 0, 1, 1]); });
+    document.getElementById('sq-add-region').addEventListener('click', function () {
+      if (!sourceState || !sourceState.selection) { ZJ.toast('请先在原卷页面上拖选区域', true); return; }
+      addSourceRegion(sourceState.selection);
+    });
+    stage.addEventListener('pointerdown', function (event) {
+      if (!sourceState || !sourceState.counts[kindControl.value] || !document.getElementById('sq-image').naturalWidth) { return; }
+      var pt = sourcePoint(event);
+      sourceState.start = pt;
+      sourceState.selection = null;
+      stage.setPointerCapture(event.pointerId);
+      drawSourceSelection([pt[0], pt[1], pt[0], pt[1]]);
+    });
+    stage.addEventListener('pointermove', function (event) {
+      if (!sourceState || !sourceState.start) { return; }
+      var pt = sourcePoint(event);
+      var start = sourceState.start;
+      drawSourceSelection([Math.min(start[0], pt[0]), Math.min(start[1], pt[1]),
+                           Math.max(start[0], pt[0]), Math.max(start[1], pt[1])]);
+    });
+    stage.addEventListener('pointerup', function (event) {
+      if (!sourceState || !sourceState.start) { return; }
+      var pt = sourcePoint(event), start = sourceState.start;
+      var box = [Math.min(start[0], pt[0]), Math.min(start[1], pt[1]),
+                 Math.max(start[0], pt[0]), Math.max(start[1], pt[1])];
+      sourceState.start = null;
+      sourceState.selection = box[2] - box[0] >= .02 && box[3] - box[1] >= .02 ? box : null;
+      drawSourceSelection(sourceState.selection);
+    });
+    document.getElementById('sq-regions').addEventListener('click', function (event) {
+      var button = event.target.closest('button[data-action]');
+      if (!button || !sourceState) { return; }
+      var kind = button.dataset.kind, index = Number(button.dataset.index);
+      var list = sourceState.regions[kind];
+      if (button.dataset.action === 'remove') { list.splice(index, 1); }
+      if (button.dataset.action === 'up' && index > 0) {
+        var prev = list[index - 1]; list[index - 1] = list[index]; list[index] = prev;
+      }
+      if (button.dataset.action === 'down' && index < list.length - 1) {
+        var next = list[index + 1]; list[index + 1] = list[index]; list[index] = next;
+      }
+      renderSourceRegions();
+    });
+    document.getElementById('sq-save').addEventListener('click', saveSourceQuestion);
+    document.getElementById('modal-source-question').addEventListener('click', function (event) {
+      if (event.target.closest('[data-close="modal-source-question"]')) { clearSourceUrls(); sourceState = null; }
+    });
+  }
+
+  function sourcePoint(event) {
+    var rect = document.getElementById('sq-image').getBoundingClientRect();
+    return [Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width)),
+            Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height))];
+  }
+
+  function drawSourceSelection(box) {
+    var marker = document.getElementById('sq-selection');
+    marker.hidden = !box;
+    if (!box) { return; }
+    var image = document.getElementById('sq-image'), stage = document.getElementById('sq-stage');
+    marker.style.left = (image.offsetLeft - stage.clientLeft + box[0] * image.clientWidth) + 'px';
+    marker.style.top = (image.offsetTop - stage.clientTop + box[1] * image.clientHeight) + 'px';
+    marker.style.width = ((box[2] - box[0]) * image.clientWidth) + 'px';
+    marker.style.height = ((box[3] - box[1]) * image.clientHeight) + 'px';
+  }
+
+  function changeSourcePage(delta) {
+    if (!sourceState) { return; }
+    var kind = document.getElementById('sq-kind').value;
+    sourceState.pages[kind] = Math.max(0, Math.min(sourceState.counts[kind] - 1, sourceState.pages[kind] + delta));
+    displaySourcePage();
+  }
+
+  function displaySourcePage() {
+    if (!sourceState) { return; }
+    var kind = document.getElementById('sq-kind').value;
+    var count = sourceState.counts[kind], index = sourceState.pages[kind];
+    var image = document.getElementById('sq-image');
+    sourceState.selection = null;
+    drawSourceSelection(null);
+    document.getElementById('sq-page').value = count ? index + 1 : '';
+    document.getElementById('sq-page').max = count;
+    document.getElementById('sq-page-total').textContent = ' / ' + count + ' 页';
+    document.getElementById('sq-add-full').disabled = !count;
+    document.getElementById('sq-add-region').disabled = !count;
+    image.removeAttribute('src');
+    image.alt = count ? '加载私有原卷页…' : '此原卷没有可用 MS（可保留缺失状态）';
+    if (!count) { return; }
+    var serial = ++sourceLoad;
+    Data.sourcePageImage(sourceState.paperId, kind, index).then(function (url) {
+      if (serial !== sourceLoad || !sourceState) { URL.revokeObjectURL(url); return; }
+      sourceUrls.push(url);
+      image.src = url;
+      image.alt = kind.toUpperCase() + ' · PDF 第 ' + (index + 1) + ' 页';
+    }).catch(function (err) { ZJ.toast(err.message, true); });
+  }
+
+  function addSourceRegion(box) {
+    if (!sourceState) { return; }
+    var kind = document.getElementById('sq-kind').value;
+    if (!sourceState.counts[kind] || sourceState.regions[kind].length >= 12) {
+      ZJ.toast('该资源不可用或选区已达 12 个', true); return;
+    }
+    sourceState.regions[kind].push({ pageIndex: sourceState.pages[kind], box: box.slice() });
+    sourceState.selection = null;
+    drawSourceSelection(null);
+    renderSourceRegions();
+  }
+
+  function renderSourceRegions() {
+    if (!sourceState) { return; }
+    var area = document.getElementById('sq-regions');
+    area.innerHTML = ['qp', 'ms'].map(function (kind) {
+      return '<h3 style="margin:12px 0 6px;">' + kind.toUpperCase() + ' · ' + sourceState.regions[kind].length + ' 个区域</h3>' +
+        (sourceState.regions[kind].length ? sourceState.regions[kind].map(function (r, i) {
+          return '<div style="padding:8px;border:1px solid #e5e8eb;margin:6px 0;border-radius:6px;">' +
+            (i + 1) + '. PDF 第 ' + (r.pageIndex + 1) + ' 页' +
+            '<div class="row-actions" style="margin:5px 0;">' +
+            ['up', 'down', 'remove'].map(function (action) {
+              return '<button class="btn-mini" data-action="' + action + '" data-kind="' + kind +
+                '" data-index="' + i + '">' + ({ up: '上移', down: '下移', remove: '移除' })[action] + '</button>';
+            }).join('') + '</div><img data-source-thumb="' + kind + ':' + i +
+            '" alt="选定区域预览" style="max-width:100%;max-height:350px;display:block;"></div>';
+        }).join('') : '<div class="f-hint">尚未添加' + kind.toUpperCase() + ' 区域' + (kind === 'ms' ? '；可保留缺失' : '') + '</div>');
+    }).join('');
+    ['qp', 'ms'].forEach(function (kind) {
+      sourceState.regions[kind].forEach(function (r, i) {
+        var target = area.querySelector('[data-source-thumb="' + kind + ':' + i + '"]');
+        Data.sourcePageImage(sourceState.paperId, kind, r.pageIndex).then(function (url) {
+          var source = new Image();
+          source.onload = function () {
+            if (target.isConnected) {
+              var width = Math.max(1, Math.floor(source.naturalWidth * (r.box[2] - r.box[0])));
+              var height = Math.max(1, Math.floor(source.naturalHeight * (r.box[3] - r.box[1])));
+              var canvas = document.createElement('canvas');
+              canvas.width = width; canvas.height = height;
+              canvas.getContext('2d').drawImage(source, r.box[0] * source.naturalWidth,
+                r.box[1] * source.naturalHeight, width, height, 0, 0, width, height);
+              target.src = canvas.toDataURL('image/png');
+            }
+            URL.revokeObjectURL(url);
+          };
+          source.onerror = function () { URL.revokeObjectURL(url); };
+          source.src = url;
+        }).catch(function (err) { ZJ.toast(err.message, true); });
+      });
+    });
+  }
+
+  function openSourceQuestion(id) {
+    var paper = epCache.filter(function (p) { return p.id === id; })[0];
+    if (!paper || Data.mode !== 'server') { ZJ.toast('请从正式后台打开原卷', true); return; }
+    clearSourceUrls();
+    sourceState = { paperId: id, counts: { qp: 0, ms: 0 }, pages: { qp: 0, ms: 0 },
+      regions: { qp: [], ms: [] }, selection: null, start: null };
+    document.getElementById('sq-title').textContent = paper.paperName + ' · ' + paper.year + ' ' + paper.session + ' · 创建完整大题';
+    document.getElementById('sq-number').value = '';
+    document.getElementById('sq-kind').value = 'qp';
+    document.getElementById('sq-confirm').checked = false;
+    document.getElementById('sq-selector').hidden = false;
+    document.getElementById('sq-saved').hidden = true;
+    document.getElementById('sq-save').disabled = false;
+    ZJ.openModal('modal-source-question');
+    Promise.all([Data.sourcePages(id, 'qp'), paper.msAvailable ? Data.sourcePages(id, 'ms') : Promise.resolve({ pageCount: 0 })])
+      .then(function (results) {
+        if (!sourceState || sourceState.paperId !== id) { return; }
+        sourceState.counts.qp = results[0].pageCount;
+        sourceState.counts.ms = results[1].pageCount;
+        displaySourcePage();
+        renderSourceRegions();
+      }).catch(function (err) { ZJ.toast(err.message, true); });
+  }
+
+  function saveSourceQuestion() {
+    if (!sourceState) { return; }
+    var number = document.getElementById('sq-number').value.trim();
+    if (!/^[1-9][0-9]{0,2}$/.test(number) || !sourceState.regions.qp.length || !document.getElementById('sq-confirm').checked) {
+      ZJ.toast('请填写完整大题号、加入 QP 区域并确认 QP/MS 边界', true); return;
+    }
+    var button = document.getElementById('sq-save');
+    button.disabled = true;
+    Data.createSourceQuestion(sourceState.paperId, {
+      originalQuestionNumber: number, qpRegions: sourceState.regions.qp,
+      msRegions: sourceState.regions.ms, selectionAcknowledged: true
+    }).then(function (question) {
+      ZJ.toast('完整大题草稿已保存，待教研审核');
+      loadArchive();
+      showSavedSource(question);
+    }).catch(function (err) { button.disabled = false; ZJ.toast(err.message, true); });
+  }
+
+  function openSavedSource(id) {
+    Data.sourceQuestion(id).then(showSavedSource).catch(function (err) { ZJ.toast(err.message, true); });
+  }
+
+  function showSavedSource(question) {
+    clearSourceUrls();
+    sourceState = null;
+    document.getElementById('sq-title').textContent = question.paperName + ' · 原题 ' + question.originalQuestionNumber + ' · 草稿 #' + question.id;
+    document.getElementById('sq-selector').hidden = true;
+    var area = document.getElementById('sq-saved');
+    area.hidden = false;
+    area.innerHTML = '<p>以下按保存顺序预览 QP 和 MS。题目仍为私有、停用状态，等待教研核对；不代表已发布。</p>' +
+      ['qp', 'ms'].map(function (kind) {
+        var list = question.regions.filter(function (r) { return r.kind === kind; })
+          .sort(function (a, b) { return a.sortOrder - b.sortOrder; });
+        return '<h3>' + kind.toUpperCase() + ' · ' + list.length + ' 个区域</h3>' +
+          (list.length ? list.map(function (r, i) {
+            return '<div style="padding:10px;margin:8px 0;border:1px solid #e4e8ed;border-radius:6px;">' +
+              (i + 1) + '. PDF 第 ' + (r.pageIndex + 1) + ' 页' +
+              '<img data-saved-id="' + r.id + '" alt="已保存的' + kind.toUpperCase() + '区域" style="display:block;max-width:100%;max-height:600px;margin-top:8px;"></div>';
+          }).join('') : '<p>无 MS 区域：评分方案暂缺，需教研核对。</p>');
+      }).join('');
+    ZJ.openModal('modal-source-question');
+    question.regions.forEach(function (r) {
+      Data.sourceRegionImage(question.id, r.id).then(function (url) {
+        var img = area.querySelector('[data-saved-id="' + r.id + '"]');
+        if (!img || !img.isConnected) { URL.revokeObjectURL(url); return; }
+        sourceUrls.push(url);
+        img.src = url;
+      }).catch(function (err) { ZJ.toast(err.message, true); });
+    });
   }
 
   /* ================= 知识点刷题 ================= */

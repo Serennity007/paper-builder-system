@@ -40,7 +40,7 @@
           <button class="btn-mini" disabled>Cambridge International（CAIE）· 待接入</button>
           <button class="btn-mini" disabled>AQA · 待接入</button>
         </div>
-        <p>三个考试局分别组织题库；当前等待教研提供真实完整 QP/MS PDF。</p>
+        <p>当前仅 Edexcel IAL P1/P2 支持内部原卷结构化；试题须经教研审核后才能发布。</p>
       </div>
       <div class="math-course">
         <strong>AP Mathematics</strong>
@@ -126,7 +126,7 @@
       <div class="toolbar">
         <select id="ar-paper"><option value="全部">全部 Paper</option><option value="P1">P1</option><option value="P2">P2</option></select>
         <input type="number" id="ar-year" placeholder="年份" style="height:38px;width:90px;border:1px solid var(--c-border);border-radius:6px;padding:0 10px;">
-        <select id="ar-session"><option value="全部">全部考季</option><option value="January">January</option><option value="June">June</option><option value="October">October</option></select>
+        <select id="ar-session"><option value="全部">全部考季</option><option value="January">January</option><option value="June">June</option><option value="Summer">Summer</option><option value="October">October</option></select>
         <select id="ar-status"><option value="全部状态">全部状态</option><option value="published">已发布</option><option value="draft">草稿</option><option value="disabled">已下架</option></select>
         <button class="btn btn-primary" id="btn-ep-new">＋ 新建真题卷</button>
         <span class="result-count" id="ar-count"></span>
@@ -137,6 +137,8 @@
           <tbody id="ar-tbody"></tbody>
         </table>
       </div>
+      <div class="section-head" style="margin-top:22px;"><h2>待教研核对的结构化大题</h2><span class="sec-note">仅创建者与管理员可见 · 不进入公开题库或组卷</span></div>
+      <div id="ar-source-drafts" class="table-wrap" style="padding:14px;">请选择有完整 PDF 的原卷，点击「创建大题」；保存后可在此重新打开预览。</div>
     </section>
 
     <!-- ========== 知识点刷题 ========== -->
@@ -600,7 +602,7 @@
           </div>
           <div class="form-item">
             <label>考季 <span class="req">*</span></label>
-            <select id="ep-session"><option value="January">January</option><option value="June">June</option><option value="October">October</option><option value="November">November</option></select>
+            <select id="ep-session"><option value="January">January</option><option value="June">June</option><option value="Summer">Summer</option><option value="October">October</option><option value="November">November</option></select>
           </div>
           <div class="form-item">
             <label>卷号（Paper Code）</label>
@@ -639,6 +641,43 @@
           <button class="btn btn-ghost" data-close="modal-exampaper">取消</button>
           <button class="btn btn-primary" id="btn-ep-save">保存真题卷</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phase 1B: one complete original question, with ordered QP/MS regions -->
+  <div class="modal-mask" id="modal-source-question">
+    <div class="modal" style="max-width:1060px;">
+      <div class="modal-head">
+        <div><div class="m-title" id="sq-title">从原卷创建完整大题</div>
+          <div class="m-sub">原卷页面与 MS 区域由教研人工选择；(a)/(b) 等小问必须包含在同一道大题内。</div></div>
+        <button class="modal-close" data-close="modal-source-question">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-grid" style="margin-bottom:12px;">
+          <div class="form-item"><label>原生大题号 <span class="req">*</span></label><input id="sq-number" inputmode="numeric" maxlength="3" placeholder="如 1；不要写 1(a)"></div>
+          <div class="form-item"><label>查看原卷</label><select id="sq-kind"><option value="qp">Question Paper（QP）</option><option value="ms">Mark Scheme（MS）</option></select></div>
+        </div>
+        <div id="sq-selector">
+          <div class="row-actions" style="margin:12px 0;align-items:center;">
+            <button type="button" class="btn btn-ghost" id="sq-prev">上一页</button>
+            <label>PDF 页码 <input type="number" id="sq-page" min="1" style="width:70px;height:34px;"></label>
+            <span id="sq-page-total"></span>
+            <button type="button" class="btn btn-ghost" id="sq-next">下一页</button>
+            <button type="button" class="btn btn-ghost" id="sq-add-full">加入整页</button>
+            <button type="button" class="btn btn-primary" id="sq-add-region">加入拖选区域</button>
+          </div>
+          <p class="f-hint">在页面图片上拖拽选择内容；跨页大题请按阅读顺序逐页加入，MS 可单独选多页。页码按 PDF 页码计算。</p>
+          <div id="sq-stage" style="position:relative;width:fit-content;max-width:100%;margin:10px auto;border:1px solid #d5dde6;touch-action:none;">
+            <img id="sq-image" alt="私有原卷页（仅后台可见）" draggable="false" style="display:block;max-width:100%;max-height:690px;width:auto;height:auto;user-select:none;">
+            <div id="sq-selection" hidden style="position:absolute;border:2px solid #b76c2f;background:rgba(208,144,76,.14);pointer-events:none;"></div>
+          </div>
+          <div class="section-head"><h2>已选区域 · 拖选加入后可调整顺序</h2></div>
+          <div id="sq-regions"></div>
+          <label style="display:block;margin:16px 0;"><input type="checkbox" id="sq-confirm"> 我已预览初选区域；原题号、大题边界和 QP/MS 对应仍待教研最终验收，保存仅为私有草稿。</label>
+          <div class="form-actions"><button class="btn btn-ghost" data-close="modal-source-question">取消</button><button class="btn btn-primary" id="sq-save">保存私有草稿（不发布）</button></div>
+        </div>
+        <div id="sq-saved" hidden></div>
       </div>
     </div>
   </div>
@@ -758,10 +797,10 @@
 
   <script src="js/common.js?v=20261001b"></script>
   <script src="js/mock-data.js?v=20261001empty"></script>
-  <script src="js/api.js?v=20261001empty"></script>
+  <script src="js/api.js?v=20261001phase1b"></script>
   <script src="js/admin.js?v=20261001b"></script>
   <script src="js/builder.js?v=20261001empty"></script>
   <script src="js/exams.js?v=20260929a"></script>
-  <script src="js/archive.js?v=20260929a"></script>
+  <script src="js/archive.js?v=20261001phase1b"></script>
 </body>
 </html>
