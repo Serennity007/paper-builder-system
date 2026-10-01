@@ -834,10 +834,11 @@
   function migrateCart() {
     try {
       var cart = JSON.parse(sessionStorage.getItem('zhxx_zj_cart_v1') || '[]');
-      if (cart.length) {
-        cart.forEach(function (q) { addToPaper(q); });
-        sessionStorage.removeItem('zhxx_zj_cart_v1');
-        ZJ.toast('已把组卷篮中的 ' + cart.length + ' 题并入当前试卷');
+      var mathCart = cart.filter(function (q) { return ZJ.isMathSubject(q.subject); });
+      if (mathCart.length) {
+        mathCart.forEach(function (q) { addToPaper(q); });
+        sessionStorage.setItem('zhxx_zj_cart_v1', JSON.stringify(cart.filter(function (q) { return !ZJ.isMathSubject(q.subject); })));
+        ZJ.toast('已把组卷篮中的 ' + mathCart.length + ' 道数学题并入当前试卷');
       }
     } catch (e) { /* 忽略 */ }
   }

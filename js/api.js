@@ -381,6 +381,17 @@
     return db;
   }
   function demoSave(db) { ssSet(DEMO_DB_KEY, db); }
+  function mathDemoView(db) {
+    var questions = db.questions.filter(function (q) { return window.ZJ.isMathSubject(q.subject); });
+    var papers = db.papers.filter(function (p) { return window.ZJ.mathPaper(p, db.questions); });
+    return Object.assign({}, db, {
+      questions: questions,
+      papers: papers,
+      exams: db.exams.filter(function (e) { return papers.some(function (p) { return p.id === e.paperId; }); }),
+      knowledge: (db.knowledge || []).filter(function (n) { return window.ZJ.isMathSubject(n.subject); }),
+      subjects: db.subjects.filter(function (s) { return window.ZJ.isMathSubject(s.name); })
+    });
+  }
   function now() { return new Date().toISOString().slice(0, 19); }
   function normStem(s) {
     return String(s || '').toLowerCase().split('').filter(function (ch) { return /[a-z0-9\u4e00-\u9fa5]/.test(ch); }).join('');
@@ -407,6 +418,7 @@
     var db = demoDb();
     var list = db.questions.slice().reverse();
     return list.filter(function (q) {
+      if (!window.ZJ.isMathSubject(q.subject)) { return false; }
       if (!includeDeleted && q.deletedAt) { return false; }
       if (filters.subject && filters.subject !== '全部科目' && q.subject !== filters.subject) { return false; }
       if (filters.qtype && filters.qtype !== '全部题型' && q.qtype !== filters.qtype) { return false; }
@@ -444,7 +456,7 @@
       var count = Math.max(0, Number(tr.count) || 0);
       if (!tr.qtype || count <= 0) { return; }
       var pool = db.questions.filter(function (q) {
-        return q.qtype === tr.qtype && q.status === '启用' && !q.deletedAt &&
+        return window.ZJ.isMathSubject(q.subject) && q.qtype === tr.qtype && q.status === '启用' && !q.deletedAt &&
           (subjects.length === 0 || subjects.indexOf(q.subject) >= 0) && !exclude[q.id];
       });
       if (tags.length) {
@@ -645,7 +657,7 @@
 
   var Demo = {
     bootstrap: function () {
-      var db = demoDb();
+      var db = mathDemoView(demoDb());
       var stats = Demo.statsSync(db);
       var tags = {};
       db.questions.forEach(function (q) {
@@ -654,16 +666,9 @@
           if (t) { tags[t] = true; }
         });
       });
-      var groups = [];
-      db.subjects.forEach(function (s) {
-        for (var i = 0; i < groups.length; i++) {
-          if (groups[i].group === s.group) { groups[i].items.push(s.name); return; }
-        }
-        groups.push({ group: s.group, items: [s.name] });
-      });
       return Promise.resolve({
         profile: window.ZJ_Auth ? window.ZJ_Auth.get() : null,
-        subjects: groups,
+        subjects: window.ZJ.SUBJECT_CATALOG,
         stats: stats,
         tags: Object.keys(tags).sort()
       });
@@ -679,6 +684,7 @@
     createQuestion: function (fields) {
       var db = demoDb();
       if (!fields.subject) { return Promise.reject(new Error('请选择科目')); }
+      if (!window.ZJ.isMathSubject(fields.subject)) { return Promise.reject(new Error('当前仅开放数学科目')); }
       if (!String(fields.stem || '').trim()) { return Promise.reject(new Error('题干不能为空')); }
       var known = db.subjects.some(function (s) { return s.name === fields.subject; });
       if (!known) { db.subjects.push({ name: fields.subject, group: '自定义' }); }
@@ -701,6 +707,7 @@
       var q = null;
       db.questions.forEach(function (x) { if (x.id === Number(id)) { q = x; } });
       if (!q) { return Promise.reject(new Error('试题不存在')); }
+      if (!window.ZJ.isMathSubject(fields.subject || q.subject)) { return Promise.reject(new Error('当前仅开放数学科目')); }
       Object.keys(fields).forEach(function (k) {
         if (fields[k] !== undefined) {
           if (k === 'imagePath') { q.imagePath = fields[k]; } else { q[k] = fields[k]; }
@@ -761,8 +768,8 @@
     },
     emptyTrash: function () {
       var db = demoDb();
-      var n = db.questions.filter(function (q) { return q.deletedAt; }).length;
-      db.questions = db.questions.filter(function (q) { return !q.deletedAt; });
+      var n = db.questions.filter(function (q) { return window.ZJ.isMathSubject(q.subject) && q.deletedAt; }).length;
+      db.questions = db.questions.filter(function (q) { return !window.ZJ.isMathSubject(q.subject) || !q.deletedAt; });
       demoSave(db);
       return Promise.resolve({ ok: true, purged: n });
     },
@@ -773,7 +780,7 @@
       if (target) {
         for (var i = db.questions.length - 1; i >= 0 && dups.length < 5; i--) {
           var q = db.questions[i];
-          if (q.deletedAt || q.id === Number(excludeId)) { continue; }
+          if (!window.ZJ.isMathSubject(q.subject) || q.deletedAt || q.id === Number(excludeId)) { continue; }
           if (normStem(q.stem) === target) {
             dups.push({ id: q.id, subject: q.subject, qtype: q.qtype, stem: q.stem.slice(0, 60) });
           }
@@ -788,7 +795,7 @@
     generate: function (params) { return demoGenerate(params); },
 
     papers: function () {
-      var db = demoDb();
+      var db = mathDemoView(demoDb());
       return Promise.resolve(db.papers.slice().sort(function (a, b) {
         return String(b.updatedAt).localeCompare(String(a.updatedAt));
       }).map(demoPaperMeta));
@@ -867,7 +874,7 @@
 
     /* ---- 考试 ---- */
     exams: function () {
-      var db = demoDb();
+      var db = mathDemoView(demoDb());
       return Promise.resolve(db.exams.slice().reverse().map(function (e) { return demoExamMeta(db, e); }));
     },
     exam: function (id) {
@@ -1019,7 +1026,9 @@
     /* ---- 蓝图 ---- */
     blueprints: function () {
       var db = demoDb();
-      return Promise.resolve(db.blueprints.map(function (b, i) {
+      return Promise.resolve(db.blueprints.filter(function (b) {
+        return b.config && b.config.subjects && b.config.subjects.length && b.config.subjects.every(window.ZJ.isMathSubject);
+      }).map(function (b, i) {
         return { id: b.id || i + 1, name: b.name, config: b.config, createdAt: b.createdAt || '' };
       }));
     },
@@ -1039,7 +1048,7 @@
 
     /* ---- 知识点树（演示模式存本地库） ---- */
     knowledge: function () {
-      var db = demoDb();
+      var db = mathDemoView(demoDb());
       return Promise.resolve(Demo.knowledgeTree(db));
     },
     knowledgeTree: function (db) {
@@ -1179,7 +1188,7 @@
     },
 
     statsSync: function (db) {
-      db = db || demoDb();
+      db = mathDemoView(db || demoDb());
       var byType = {}, byDiff = {}, bySub = {};
       var weekAgo = Date.now() - 7 * 864e5;
       var weekNew = 0;
@@ -1311,7 +1320,7 @@
       var db = demoDb();
       var favIds = (db.favorites || []).map(function (f) { return f.questionId; });
       return Promise.resolve(db.questions.filter(function (q) {
-        return favIds.indexOf(q.id) >= 0 && !q.deletedAt;
+        return window.ZJ.isMathSubject(q.subject) && favIds.indexOf(q.id) >= 0 && !q.deletedAt;
       }).map(function (q) {
         var d = JSON.parse(JSON.stringify(q));
         d.usedCount = demoUsedCount(db, q.id);
@@ -1344,7 +1353,8 @@
     generatedFiles: function (userPaperId) {
       var db = demoDb();
       var list = (db.generatedFiles || []).filter(function (f) {
-        return !userPaperId || f.userPaperId === Number(userPaperId);
+        var paper = db.papers.find(function (p) { return p.id === f.userPaperId; });
+        return paper && window.ZJ.mathPaper(paper, db.questions) && (!userPaperId || f.userPaperId === Number(userPaperId));
       }).map(function (f) {
         var paper = db.papers.find(function (p) { return p.id === f.userPaperId; });
         return Object.assign({}, f, { paperName: paper ? paper.name : '' });

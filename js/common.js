@@ -5,13 +5,11 @@
 (function () {
   'use strict';
 
-  var QTYPE_CATALOG = ['单选题', '多选题', '判断题', '填空题', '简答题', '写作题', '口语题'];
+  var QTYPE_CATALOG = ['单选题', '多选题', '判断题', '填空题', '简答题'];
   var DIFFICULTY_LABELS = { 1: '基础', 2: '较易', 3: '中等', 4: '较难', 5: '挑战' };
   var SUBJECT_CATALOG = [
-    { group: '雅思', items: ['雅思听力', '雅思口语', '雅思阅读', '雅思写作'] },
-    { group: '托福', items: ['托福阅读', '托福听力', '托福口语', '托福写作'] },
-    { group: 'A-Level', items: ['A-Level 数学', 'A-Level 物理', 'A-Level 化学', 'A-Level 经济'] },
-    { group: 'AP', items: ['AP 微积分', 'AP 物理', 'AP 化学', 'AP 经济学', 'AP 计算机科学A'] }
+    { group: 'A-Level · 数学', items: ['A-Level 数学'] },
+    { group: 'AP · 数学', items: ['AP 微积分'] }
   ];
   var AVATAR_COLORS = ['#3E5C76', '#12233A', '#6B7B8C', '#A9853B', '#4A7A5E', '#7A6A54', '#31465E', '#54636F'];
 
@@ -19,6 +17,15 @@
     QTYPE_CATALOG: QTYPE_CATALOG,
     DIFFICULTY_LABELS: DIFFICULTY_LABELS,
     SUBJECT_CATALOG: SUBJECT_CATALOG,
+    isMathSubject: function (subject) {
+      return subject === 'A-Level 数学' || subject === 'AP 微积分';
+    },
+    mathPaper: function (paper, questions) {
+      var items = paper.items || [];
+      return items.length > 0 && items.every(function (item) {
+        return questions.some(function (q) { return q.id === item.questionId && ZJ.isMathSubject(q.subject); });
+      });
+    },
     VER: 'v=20260928a',
 
     /** HTML 转义 */

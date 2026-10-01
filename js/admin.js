@@ -169,12 +169,17 @@
   /* ================= 题库 ================= */
 
   var bankFilters = { q: '', subject: '全部科目', qtype: '全部题型', difficulty: '全部难度', status: '全部状态' };
+  document.getElementById('course-edexcel').addEventListener('click', function () { switchTab('archive'); });
+  document.getElementById('course-ap').addEventListener('click', function () {
+    bankFilters.subject = 'AP 微积分';
+    document.getElementById('q-subject').value = 'AP 微积分';
+    switchTab('bank');
+  });
 
   function fillSubjectSelects() {
     var groups = state.subjects || ZJ.SUBJECT_CATALOG;
     document.getElementById('q-subject').innerHTML = ZJ.subjectOptions(groups, '全部科目', '全部科目');
-    document.getElementById('e-subject').innerHTML = ZJ.subjectOptions(groups) +
-      '<option value="__new__">＋ 新增科目…</option>';
+    document.getElementById('e-subject').innerHTML = ZJ.subjectOptions(groups);
   }
 
   function fillTypeSelects() {

@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>教研工作台 · 国际课程组卷系统</title>
-  <link rel="stylesheet" href="css/style.css?v=20260929a">
+  <title>教研工作台 · 国际数学组卷系统</title>
+  <link rel="stylesheet" href="css/style.css?v=20261001b">
 </head>
 <body>
 
@@ -17,7 +17,7 @@
           <path d="M14 4v5h5"/><path d="M8.5 13h7M8.5 16.5h5"/>
         </svg>
       </span>
-      国际课程组卷系统
+      国际数学组卷系统
       <span class="brand-sub">教研组卷工作台</span>
     </div>
     <div class="spacer"></div>
@@ -32,6 +32,22 @@
   </header>
 
   <main class="page">
+    <section class="math-courses" aria-label="数学课程与考试局">
+      <div class="math-course">
+        <strong>A-Level Mathematics</strong>
+        <div class="row-actions">
+          <button class="btn-mini primary" id="course-edexcel">Pearson Edexcel · P1/P2</button>
+          <button class="btn-mini" disabled>Cambridge International（CAIE）· 待接入</button>
+          <button class="btn-mini" disabled>AQA · 待接入</button>
+        </div>
+        <p>三个考试局分别组织题库；现有未关联原卷的数学练习，保留原分类待教研确认。</p>
+      </div>
+      <div class="math-course">
+        <strong>AP Mathematics</strong>
+        <button class="btn-mini primary" id="course-ap">微积分题库</button>
+        <p>现有微积分练习；尚未细分 AB / BC。</p>
+      </div>
+    </section>
     <!-- 页签导航 -->
     <nav class="nav-tabs" id="nav-tabs">
       <button class="nav-tab active" data-tab="builder">
@@ -220,7 +236,7 @@
     <!-- ========== 组卷台（双栏工作区） ========== -->
     <section id="tab-builder">
       <div class="ws-toolbar">
-        <input type="text" id="ws-name" placeholder="试卷名称 *（如：雅思阅读强化周测）" class="ws-name">
+        <input type="text" id="ws-name" placeholder="试卷名称 *（如：Edexcel P1 数学练习）" class="ws-name">
         <input type="text" id="ws-line" placeholder="卷面科目行（可空）" class="ws-line">
         <input type="number" id="ws-duration" placeholder="时长" min="0" class="ws-dur" title="建议总时长（分钟），留空自动汇总">
         <select id="ws-variant" class="ws-var" title="卷型标记">
@@ -357,15 +373,15 @@
           <div class="form-item full">
             <label>知识点（从大纲选择或直接输入，顿号分隔）</label>
             <div style="display:flex;gap:8px;align-items:center;">
-              <input type="text" id="e-tags" list="tag-list-2" placeholder="如：同义替换、长难句" style="flex:1;">
+              <input type="text" id="e-tags" list="tag-list-2" placeholder="如：Quadratics、Differentiation" style="flex:1;">
               <button type="button" class="btn btn-ghost" id="btn-e-knowledge" style="height:38px;flex:none;">从大纲选择</button>
             </div>
             <datalist id="tag-list-2"></datalist>
             <div id="e-knowledge-picker" hidden></div>
           </div>
           <div class="form-item full">
-            <label>材料 / 文章 / 听力原文（可空）</label>
-            <textarea id="e-passage" placeholder="阅读文章、听力原文、题干背景等"></textarea>
+            <label>公共题干 / 题目背景（可空）</label>
+            <textarea id="e-passage" placeholder="大题的公共条件、函数定义或题目背景"></textarea>
           </div>
           <div class="form-item full">
             <label>题干 <span class="req">*</span></label>
@@ -386,7 +402,7 @@
           </div>
           <div class="form-item full" id="e-answer-text-wrap">
             <label>参考答案 / 评分要点 <span class="req">*</span></label>
-            <textarea id="e-answer-text" placeholder="填空/简答/写作/口语题填参考答案或评分要点"></textarea>
+            <textarea id="e-answer-text" placeholder="填写参考答案、解题步骤或评分要点"></textarea>
           </div>
           <div class="form-item full">
             <label>解析（可空，打印教师卷时随答案展示）</label>
@@ -394,7 +410,7 @@
           </div>
           <div class="form-item">
             <label>来源</label>
-            <input type="text" id="e-source" placeholder="如：剑桥雅思 19 / OG / 自编">
+            <input type="text" id="e-source" placeholder="如：Edexcel P1 June 2024 / 教研自编">
           </div>
           <div class="form-item">
             <label>建议分值</label>
@@ -415,8 +431,8 @@
               <option value="0">私有题（仅自己与总监可见）</option>
             </select>
           </div>
-          <div class="form-item full">
-            <label>听力音频（mp3/wav/m4a ≤20MB，在线答题时学生可播放）</label>
+          <div class="form-item full" hidden>
+            <label>历史音频附件</label>
             <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
               <input type="file" id="e-audio-file" accept=".mp3,.wav,.m4a,.ogg,.aac,.webm" hidden>
               <button type="button" class="btn btn-ghost" id="btn-e-audio">上传音频</button>
@@ -680,7 +696,7 @@
       <div class="modal-body">
         <div class="form-item">
           <label>蓝图名称 <span class="req">*</span></label>
-          <input type="text" id="bp-name" placeholder="如：雅思阅读强化周测蓝图">
+          <input type="text" id="bp-name" placeholder="如：P1 数学复习蓝图">
           <span class="f-hint">保存当前题型配置、难度分布与范围科目；载入后一键复用</span>
         </div>
         <div class="form-actions">
@@ -705,7 +721,7 @@
         <div class="form-grid three">
           <div class="form-item">
             <label>考试名称 <span class="req">*</span></label>
-            <input type="text" id="x-name" placeholder="如：雅思阅读周测（10 月第 1 周）">
+            <input type="text" id="x-name" placeholder="如：P1 数学周测（10 月第 1 周）">
           </div>
           <div class="form-item">
             <label>关联试卷 <span class="req">*</span></label>
@@ -740,11 +756,11 @@
     </div>
   </div>
 
-  <script src="js/common.js?v=20260929a"></script>
+  <script src="js/common.js?v=20261001b"></script>
   <script src="js/mock-data.js?v=20260929a"></script>
-  <script src="js/api.js?v=20260929a"></script>
-  <script src="js/admin.js?v=20260929a"></script>
-  <script src="js/builder.js?v=20260929a"></script>
+  <script src="js/api.js?v=20261001b"></script>
+  <script src="js/admin.js?v=20261001b"></script>
+  <script src="js/builder.js?v=20261001b"></script>
   <script src="js/exams.js?v=20260929a"></script>
   <script src="js/archive.js?v=20260929a"></script>
 </body>

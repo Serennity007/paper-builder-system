@@ -56,13 +56,24 @@ app = Flask(__name__, static_folder=None)
 
 # 科目目录（与学生进度追踪系统保持一致，便于后续成绩联动）
 SUBJECT_CATALOG = {
-    "雅思": ["雅思听力", "雅思口语", "雅思阅读", "雅思写作"],
-    "托福": ["托福阅读", "托福听力", "托福口语", "托福写作"],
-    "A-Level": ["A-Level 数学", "A-Level 物理", "A-Level 化学", "A-Level 经济"],
-    "AP": ["AP 微积分", "AP 物理", "AP 化学", "AP 经济学", "AP 计算机科学A"],
+    "A-Level · 数学": ["A-Level 数学"],
+    "AP · 数学": ["AP 微积分"],
 }
+MATH_SUBJECTS = tuple(s for items in SUBJECT_CATALOG.values() for s in items)
 
-QTYPE_CATALOG = ["单选题", "多选题", "判断题", "填空题", "简答题", "写作题", "口语题"]
+
+def math_subject_sql(column="subject"):
+    # Values are the fixed application catalog, never request input.
+    return column + " IN (" + ",".join("'" + s + "'" for s in MATH_SUBJECTS) + ")"
+
+
+def math_paper_sql(column="papers.id"):
+    # Hide mixed historical papers as a whole; never silently remove their items.
+    return (f"EXISTS (SELECT 1 FROM paper_items pi WHERE pi.paper_id={column}) AND "
+            f"NOT EXISTS (SELECT 1 FROM paper_items pi LEFT JOIN questions q ON q.id=pi.question_id "
+            f"WHERE pi.paper_id={column} AND (q.id IS NULL OR NOT ({math_subject_sql('q.subject')})))")
+
+QTYPE_CATALOG = ["单选题", "多选题", "判断题", "填空题", "简答题"]
 DIFFICULTY_LABELS = {1: "基础", 2: "较易", 3: "中等", 4: "较难", 5: "挑战"}
 # 智能组卷难度分带：基础期=难度1–2，强化期=难度3，冲刺期=难度4–5
 DIFFICULTY_BANDS = {"basic": (1, 2), "boost": (3, 3), "sprint": (4, 5)}
@@ -560,6 +571,8 @@ def validate_question(body, existing=None):
     stem = str(body.get("stem", data.get("stem", ""))).strip()
     if not subject:
         return None, (jsonify({"error": "请选择科目"}), 400)
+    if subject not in MATH_SUBJECTS:
+        return None, (jsonify({"error": "当前仅开放 A-Level 数学与 AP 微积分"}), 400)
     if qtype not in QTYPE_CATALOG:
         return None, (jsonify({"error": "题型取值不合法"}), 400)
     if not stem:
@@ -644,16 +657,7 @@ def require_role(role="any"):
 
 
 def subjects_payload():
-    rows = db().execute("SELECT name, group_name FROM subjects ORDER BY id").fetchall()
-    groups = []
-    for r in rows:
-        for g_ in groups:
-            if g_["group"] == r["group_name"]:
-                g_["items"].append(r["name"])
-                break
-        else:
-            groups.append({"group": r["group_name"], "items": [r["name"]]})
-    return groups
+    return [{"group": group, "items": items} for group, items in SUBJECT_CATALOG.items()]
 
 
 def ensure_subject(name):
@@ -769,7 +773,7 @@ def list_questions():
     user, err = require_role()
     if err:
         return err
-    conds, params = ["deleted_at IS NULL"], []
+    conds, params = ["deleted_at IS NULL", math_subject_sql()], []
     subject = request.args.get("subject", "").strip()
     qtype = request.args.get("qtype", "").strip()
     difficulty = request.args.get("difficulty", "").strip()
@@ -950,7 +954,7 @@ def trash_list():
     if err:
         return err
     rows = db().execute(
-        "SELECT * FROM questions WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC"
+        "SELECT * FROM questions WHERE deleted_at IS NOT NULL AND " + math_subject_sql() + " ORDER BY deleted_at DESC"
     ).fetchall()
     return jsonify({"questions": [question_to_dict(r) for r in rows]})
 
@@ -990,9 +994,9 @@ def empty_trash():
     user, err = require_role("teacher")
     if err:
         return err
-    n = db().execute("SELECT COUNT(*) AS n FROM questions WHERE deleted_at IS NOT NULL").fetchone()["n"]
+    n = db().execute("SELECT COUNT(*) AS n FROM questions WHERE deleted_at IS NOT NULL AND " + math_subject_sql()).fetchone()["n"]
     conn = db()
-    conn.execute("DELETE FROM questions WHERE deleted_at IS NOT NULL")
+    conn.execute("DELETE FROM questions WHERE deleted_at IS NOT NULL AND " + math_subject_sql())
     log_action(user, "清空回收站", "", f"共 {n} 题")
     conn.commit()
     return jsonify({"ok": True, "purged": n})
@@ -1047,7 +1051,7 @@ def check_duplicate():
     if not target:
         return jsonify({"duplicates": []})
     rows = db().execute(
-        "SELECT id, subject, qtype, stem FROM questions WHERE deleted_at IS NULL" +
+        "SELECT id, subject, qtype, stem FROM questions WHERE deleted_at IS NULL AND " + math_subject_sql() +
         (" AND id<>?" if exclude else ""), ((exclude,) if exclude else ())
     ).fetchall()
     scored = []
@@ -1135,6 +1139,8 @@ def list_blueprints():
             cfg = json.loads(r["config"])
         except (TypeError, ValueError):
             cfg = {}
+        if not cfg.get("subjects") or any(s not in MATH_SUBJECTS for s in cfg["subjects"]):
+            continue
         out.append({"id": r["id"], "name": r["name"], "config": cfg, "createdAt": r["created_at"]})
     return jsonify({"blueprints": out})
 
@@ -1208,7 +1214,7 @@ def roster_delete(sid):
 # ---------------- 知识点树形大纲 ----------------
 
 def knowledge_tree():
-    rows = db().execute("SELECT * FROM knowledge_nodes ORDER BY subject, parent_id, id").fetchall()
+    rows = db().execute("SELECT * FROM knowledge_nodes WHERE " + math_subject_sql() + " ORDER BY subject, parent_id, id").fetchall()
     tree = {}
     for r in rows:
         tree.setdefault(r["subject"], []).append(dict(r))
@@ -1248,6 +1254,8 @@ def knowledge_add():
     parent_id = int(body.get("parentId") or 0)
     if not subject or not name:
         return jsonify({"error": "科目与知识点名称不能为空"}), 400
+    if subject not in MATH_SUBJECTS:
+        return jsonify({"error": "当前仅开放数学知识点"}), 400
     if parent_id:
         prow = db().execute("SELECT subject, parent_id FROM knowledge_nodes WHERE id=?", (parent_id,)).fetchone()
         if not prow or prow["parent_id"]:
@@ -1294,7 +1302,7 @@ def tags_payload_route():
 
 def tags_payload():
     names = set()
-    for r in db().execute("SELECT tags FROM questions WHERE tags<>''").fetchall():
+    for r in db().execute("SELECT tags FROM questions WHERE tags<>'' AND " + math_subject_sql()).fetchall():
         for t in (r["tags"] or "").replace("，", "、").split("、"):
             t = t.strip()
             if t:
@@ -1348,7 +1356,7 @@ def generate_paper():
             per_score = 0.0
         if qtype not in QTYPE_CATALOG or count <= 0:
             continue
-        conds = ["qtype=?", "status='启用'", "deleted_at IS NULL", "(is_public=1 OR created_by=?)"]
+        conds = ["qtype=?", "status='启用'", "deleted_at IS NULL", "(is_public=1 OR created_by=?)", math_subject_sql()]
         params = [qtype, user["account"]]
         if subjects:
             conds.append("subject IN (%s)" % ",".join("?" * len(subjects)))
@@ -1508,7 +1516,7 @@ def list_papers():
     user, err = require_role()
     if err:
         return err
-    rows = db().execute("SELECT * FROM papers ORDER BY updated_at DESC, id DESC").fetchall()
+    rows = db().execute("SELECT * FROM papers WHERE " + math_paper_sql() + " ORDER BY updated_at DESC, id DESC").fetchall()
     return jsonify({"papers": [paper_meta_to_dict(r) for r in rows]})
 
 
@@ -1681,7 +1689,7 @@ def list_exams():
     user, err = require_role()
     if err:
         return err
-    rows = db().execute("SELECT * FROM exams ORDER BY id DESC").fetchall()
+    rows = db().execute("SELECT * FROM exams WHERE paper_id IN (SELECT id FROM papers WHERE " + math_paper_sql() + ") ORDER BY id DESC").fetchall()
     return jsonify({"exams": [exam_meta_to_dict(r) for r in rows]})
 
 
@@ -1967,21 +1975,24 @@ def restore_all():
 
 def stats_payload():
     conn = db()
+    question_view = "(SELECT * FROM questions WHERE " + math_subject_sql() + ")"
+    paper_view = "(SELECT * FROM papers WHERE " + math_paper_sql() + ")"
     week_ago = (datetime.now() - timedelta(days=7)).isoformat(timespec="seconds")
-    total = conn.execute("SELECT COUNT(*) AS n FROM questions WHERE deleted_at IS NULL").fetchone()["n"]
-    enabled = conn.execute("SELECT COUNT(*) AS n FROM questions WHERE status='启用' AND deleted_at IS NULL").fetchone()["n"]
-    week_new = conn.execute("SELECT COUNT(*) AS n FROM questions WHERE created_at>=? AND deleted_at IS NULL", (week_ago,)).fetchone()["n"]
-    papers_count = conn.execute("SELECT COUNT(*) AS n FROM papers").fetchone()["n"]
+    total = conn.execute(f"SELECT COUNT(*) AS n FROM {question_view} WHERE deleted_at IS NULL").fetchone()["n"]
+    enabled = conn.execute(f"SELECT COUNT(*) AS n FROM {question_view} WHERE status='启用' AND deleted_at IS NULL").fetchone()["n"]
+    week_new = conn.execute(f"SELECT COUNT(*) AS n FROM {question_view} WHERE created_at>=? AND deleted_at IS NULL", (week_ago,)).fetchone()["n"]
+    papers_count = conn.execute(f"SELECT COUNT(*) AS n FROM {paper_view}").fetchone()["n"]
     by_type = {r["qtype"]: r["n"] for r in
-               conn.execute("SELECT qtype, COUNT(*) AS n FROM questions WHERE deleted_at IS NULL GROUP BY qtype").fetchall()}
+               conn.execute(f"SELECT qtype, COUNT(*) AS n FROM {question_view} WHERE deleted_at IS NULL GROUP BY qtype").fetchall()}
     by_diff = {str(r["difficulty"]): r["n"] for r in
-               conn.execute("SELECT difficulty, COUNT(*) AS n FROM questions WHERE deleted_at IS NULL GROUP BY difficulty").fetchall()}
+               conn.execute(f"SELECT difficulty, COUNT(*) AS n FROM {question_view} WHERE deleted_at IS NULL GROUP BY difficulty").fetchall()}
     by_subject = [{"subject": r["subject"], "n": r["n"]} for r in
-                  conn.execute("SELECT subject, COUNT(*) AS n FROM questions WHERE deleted_at IS NULL GROUP BY subject ORDER BY n DESC").fetchall()]
+                  conn.execute(f"SELECT subject, COUNT(*) AS n FROM {question_view} WHERE deleted_at IS NULL GROUP BY subject ORDER BY n DESC").fetchall()]
     recent = [paper_meta_to_dict(r) for r in
-              conn.execute("SELECT * FROM papers ORDER BY updated_at DESC, id DESC LIMIT 5").fetchall()]
+              conn.execute(f"SELECT * FROM {paper_view} ORDER BY updated_at DESC, id DESC LIMIT 5").fetchall()]
     # 近 8 周趋势：新增题目 / 新建试卷
     def weekly_counts(table):
+        view = question_view if table == "questions" else paper_view
         buckets = []
         today = date.today()
         for i in range(7, -1, -1):
@@ -1989,14 +2000,14 @@ def stats_payload():
             week_end = week_start + timedelta(days=6)
             lo, hi = week_start.isoformat(), week_end.isoformat()
             n = conn.execute(
-                f"SELECT COUNT(*) AS n FROM {table} WHERE substr(created_at,1,10) BETWEEN ? AND ?",
+                f"SELECT COUNT(*) AS n FROM {view} WHERE substr(created_at,1,10) BETWEEN ? AND ?",
                 (lo, hi),
             ).fetchone()["n"]
             buckets.append({"label": f"{week_start.month}/{week_start.day}", "n": n})
         return buckets
     top_used = [{"stem": (r["stem"] or "")[:36], "subject": r["subject"], "n": r["n"]} for r in conn.execute(
         "SELECT q.stem, q.subject, COUNT(pi.id) AS n FROM paper_items pi"
-        " JOIN questions q ON q.id=pi.question_id GROUP BY pi.question_id ORDER BY n DESC LIMIT 5"
+        " JOIN questions q ON q.id=pi.question_id WHERE " + math_subject_sql("q.subject") + " GROUP BY pi.question_id ORDER BY n DESC LIMIT 5"
     ).fetchall()]
     return {
         "totalQuestions": total, "enabledQuestions": enabled, "weekNew": week_new,
@@ -2006,8 +2017,8 @@ def stats_payload():
         "weeklyQuestions": weekly_counts("questions"),
         "weeklyPapers": weekly_counts("papers"),
         "topUsed": top_used,
-        "trashCount": conn.execute("SELECT COUNT(*) AS n FROM questions WHERE deleted_at IS NOT NULL").fetchone()["n"],
-        "examCount": conn.execute("SELECT COUNT(*) AS n FROM exams").fetchone()["n"],
+        "trashCount": conn.execute(f"SELECT COUNT(*) AS n FROM {question_view} WHERE deleted_at IS NOT NULL").fetchone()["n"],
+        "examCount": conn.execute(f"SELECT COUNT(*) AS n FROM exams WHERE paper_id IN (SELECT id FROM {paper_view})").fetchone()["n"],
     }
 
 
@@ -2047,11 +2058,10 @@ def questions_template():
         cell.border = border
         cell.alignment = Alignment(horizontal="center", vertical="center")
     example = [
-        "雅思阅读", "判断题", 3, "TRUE-FALSE-NOT GIVEN",
-        "The Canary Islands were so named not after the songbirds that now bear their name, but after the packs of large dogs that Roman explorers encountered there.",
-        "The islands got their name from songbirds that lived there.",
-        "", "错",
-        "原文明确说群岛得名于罗马探险者遇到的狗，而非金丝雀，属于与原文相矛盾的表述。",
+        "A-Level 数学", "简答题", 3, "Differentiation",
+        "", "Find the derivative of f(x) = x^3 + 2x.",
+        "", "f'(x) = 3x^2 + 2",
+        "使用幂函数求导法则。此行为教研自编练习示例，不是真题原件。",
         2, 2, "自编示例",
     ]
     ws.append(example)
@@ -2100,7 +2110,7 @@ def questions_export():
         cell.font = header_font
         cell.border = border
         cell.alignment = Alignment(horizontal="center", vertical="center")
-    rows = db().execute("SELECT * FROM questions WHERE deleted_at IS NULL ORDER BY subject, qtype, id").fetchall()
+    rows = db().execute("SELECT * FROM questions WHERE deleted_at IS NULL AND " + math_subject_sql() + " ORDER BY subject, qtype, id").fetchall()
     exported = 0
     for r in rows:
         q = question_to_dict(r)
@@ -2173,6 +2183,9 @@ def questions_import():
             continue
         if qtype not in QTYPE_CATALOG:
             errors.append(f"第{ln}行：题型「{qtype or '空'}」不合法，已跳过")
+            continue
+        if subject not in MATH_SUBJECTS:
+            errors.append(f"第{ln}行：当前仅开放 A-Level 数学与 AP 微积分，已跳过")
             continue
         diff_raw = getv("难度(1-5)") or "3"
         try:
@@ -2866,7 +2879,7 @@ def list_favorites():
         return err
     rows = db().execute(
         "SELECT q.* FROM favorites f JOIN questions q ON q.id=f.question_id"
-        " WHERE f.user_id=? AND q.deleted_at IS NULL ORDER BY f.id DESC",
+        " WHERE f.user_id=? AND q.deleted_at IS NULL AND " + math_subject_sql("q.subject") + " ORDER BY f.id DESC",
         (user["account"],),
     ).fetchall()
     qs = [question_to_dict(r, with_used=True) for r in rows]
@@ -2929,9 +2942,9 @@ def list_generated():
         return err
     upid = int(request.args.get("userPaperId") or 0)
     base = ("SELECT g.*, p.name AS paper_name FROM generated_files g"
-            " JOIN papers p ON p.id=g.user_paper_id")
+            " JOIN papers p ON p.id=g.user_paper_id WHERE " + math_paper_sql("p.id"))
     if upid:
-        rows = db().execute(base + " WHERE g.user_paper_id=? ORDER BY g.id DESC LIMIT 50", (upid,)).fetchall()
+        rows = db().execute(base + " AND g.user_paper_id=? ORDER BY g.id DESC LIMIT 50", (upid,)).fetchall()
     else:
         rows = db().execute(base + " ORDER BY g.id DESC LIMIT 50").fetchall()
     out = []
