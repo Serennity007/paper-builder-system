@@ -5,14 +5,16 @@
    "password": "zx123456",
    "role": "admin",
    "name": "金老师",
-   "title": "教学总监"
+   "title": "教学总监",
+   "email": "teacher@zhxx.cn"
   },
   {
    "account": "wangli",
    "password": "zx123456",
    "role": "teacher",
    "name": "王丽",
-   "title": "教研组长"
+   "title": "教研组长",
+   "email": "wangli@zhxx.cn"
   }
  ],
  "subjects": [

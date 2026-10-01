@@ -267,6 +267,7 @@
     document.getElementById('q-check-all').checked = false;
     updateBatchBar();
   });
+  document.getElementById('batch-bar').hidden = true; // 初始未选择时隐藏
   document.getElementById('batch-bar').addEventListener('click', function (e) {
     var btn = e.target.closest('button[data-batch]');
     if (!btn || !selectedIds.size) { return; }

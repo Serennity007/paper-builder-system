@@ -376,6 +376,7 @@ Dashboard | Papers | Questions | Topics | Users（现有组卷台/题库/考试/
 | Sprint 4 | 用户能力 | favorites、我的收藏、我的试卷归属 | 本期 |
 | Sprint 5 | 组卷系统对接 | 真题源接入工作区试题池、防重复、总分 | ✅ 大部分已完成 |
 | Sprint 6 | PDF 生成与下载 | QP + MS 按规则生成、generated_files 记录 | 本期 |
+| Sprint 7（增补） | 邮箱验证码登录：`/api/auth/email-code` + `/api/auth/email-login`、登录页双页签、`email_config.json` 可切 SMTP（默认开发模式回显，本地可联调） | `smoke_email.py` 10/10，服务端/演示双模式浏览器实测通过 | ✅ 已上线（2026-10-01） |
 
 ## 14. MVP 验收标准
 

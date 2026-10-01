@@ -7,6 +7,8 @@ Flask + SQLite 零配置实现，与学生进度追踪系统（端口 8686）同
 接口一览：
   POST /api/ping                    模式探测（前端双模式自动切换）
   POST /api/auth/login              登录并签发令牌
+  POST /api/auth/email-code         发送邮箱验证码（未配 SMTP 时开发模式回显，便于本地联调）
+  POST /api/auth/email-login        邮箱验证码登录并签发令牌
   POST /api/auth/logout             退出登录
   PUT  /api/me/password             修改密码
   GET  /api/bootstrap               首屏全量（身份 + 科目库 + 总览统计 + 知识点标签）
@@ -40,9 +42,13 @@ import hashlib
 import json
 import os
 import random
+import re
 import secrets
+import smtplib
 import sqlite3
+import ssl
 from datetime import date, datetime, timedelta
+from email.message import EmailMessage
 
 from flask import Flask, g, jsonify, request, send_file, send_from_directory
 
@@ -50,6 +56,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))          # .../06-组卷�
 STATIC_DIR = os.path.dirname(BASE_DIR)                          # .../06-组卷系统
 DB_PATH = os.path.join(BASE_DIR, "zujuan.db")
 SEED_PATH = os.path.join(BASE_DIR, "seed.json")
+EMAIL_CFG_PATH = os.path.join(BASE_DIR, "email_config.json")
+EMAIL_CODE_TTL = 300          # 验证码有效期（秒）
+EMAIL_RESEND_COOLDOWN = 60    # 同邮箱重发冷却（秒）
+EMAIL_HOURLY_CAP = 5          # 同邮箱每小时最多发送条数
+EMAIL_MAX_ATTEMPTS = 5        # 单个验证码最大校验次数
 
 app = Flask(__name__, static_folder=None)
 
@@ -87,6 +98,89 @@ def close_db(exc):
 
 def hash_pw(password):
     return hashlib.sha256(("zhxx-zj:" + password).encode("utf-8")).hexdigest()
+
+
+def load_email_cfg():
+    """邮件通道配置。优先级：环境变量 > backend/email_config.json > 默认（开发模式）。
+
+    - 缺配置文件且未设环境变量：开发模式——不真正发信，验证码回显在接口响应
+      devCode 与后端控制台，本地零配置可联调；
+    - 配置文件示例与字段见 docs/HANDBOOK.md「认证与首屏」；
+    - 云部署免改文件，可用环境变量：EMAIL_SMTP_HOST/EMAIL_SMTP_PORT/EMAIL_SMTP_SSL/
+      EMAIL_SMTP_USER/EMAIL_SMTP_PASS/EMAIL_SMTP_SENDER（HOST+USER 齐备即启用发信），
+      EMAIL_DEV_ECHO=0 强制关闭验证码回显（公网部署必设，防验证码泄露）。"""
+    cfg = {"enabled": False, "host": "", "port": 465, "ssl": True, "username": "",
+           "password": "", "sender": "", "dev_echo": True}
+    try:
+        with open(EMAIL_CFG_PATH, "r", encoding="utf-8") as f:
+            user_cfg = json.load(f)
+        if isinstance(user_cfg, dict):
+            cfg.update({k: v for k, v in user_cfg.items() if k in cfg})
+    except (OSError, ValueError):
+        pass
+
+    def env_flag(name):
+        v = os.environ.get(name)
+        return v.strip().lower() not in ("0", "false", "no", "off") if v is not None and v.strip() != "" else None
+
+    env_map = {"host": "EMAIL_SMTP_HOST", "port": "EMAIL_SMTP_PORT", "ssl": "EMAIL_SMTP_SSL",
+               "username": "EMAIL_SMTP_USER", "password": "EMAIL_SMTP_PASS", "sender": "EMAIL_SMTP_SENDER"}
+    for key, envk in env_map.items():
+        v = os.environ.get(envk)
+        if v is not None and v.strip() != "":
+            if key == "port":
+                try:
+                    v = int(v)
+                except ValueError:
+                    continue
+            if key == "ssl":
+                v = bool(env_flag(envk))
+            cfg[key] = v
+    if cfg.get("host") and cfg.get("username"):
+        flag = env_flag("EMAIL_SMTP_ENABLED")
+        cfg["enabled"] = True if flag is None else flag
+    echo = env_flag("EMAIL_DEV_ECHO")
+    if echo is not None:
+        cfg["dev_echo"] = echo
+    return cfg
+
+
+def dev_echo_allowed(cfg):
+    """开发模式回显开关：本地（无环境变量）按配置文件/默认开启；
+    公网部署设 EMAIL_DEV_ECHO=0 强制关闭。"""
+    echo = os.environ.get("EMAIL_DEV_ECHO")
+    if echo is not None and echo.strip() != "":
+        return echo.strip().lower() not in ("0", "false", "no", "off")
+    return bool(cfg.get("dev_echo", True))
+
+
+def send_code_email(cfg, to_addr, code):
+    """SMTP 发送验证码邮件；返回错误提示文案，None 表示发送成功。"""
+    msg = EmailMessage()
+    msg["Subject"] = "登录验证码 · 国际课程组卷系统"
+    msg["From"] = cfg.get("sender") or cfg.get("username") or to_addr
+    msg["To"] = to_addr
+    msg.set_content(
+        "您的登录验证码是 {code}，{mins} 分钟内有效。若非本人操作，请忽略本邮件。\n\n"
+        "成都智慧象留学 · 国际课程组卷系统".format(code=code, mins=EMAIL_CODE_TTL // 60)
+    )
+    try:
+        port = int(cfg.get("port") or 465)
+        if cfg.get("ssl", True):
+            server = smtplib.SMTP_SSL(cfg["host"], port, context=ssl.create_default_context(), timeout=10)
+        else:
+            server = smtplib.SMTP(cfg["host"], port, timeout=10)
+            try:
+                server.starttls(context=ssl.create_default_context())
+            except smtplib.SMTPException:
+                pass  # 服务端不支持 STARTTLS 时按原连接继续
+        with server:
+            server.login(cfg["username"], cfg["password"])
+            server.send_message(msg)
+        return None
+    except Exception as e:  # 网络 / 认证 / 发信失败统一兜底，不中断服务
+        print("[邮箱验证码] SMTP 发送失败：%r" % e)
+        return "邮件发送失败，请稍后再试或使用密码登录"
 
 
 def ensure_schema():
@@ -248,6 +342,15 @@ def ensure_schema():
             created_by TEXT DEFAULT '',
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS email_codes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT NOT NULL,
+            code_hash TEXT NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            used INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL,
+            expires_at TEXT NOT NULL
+        );
         """
     )
     # 旧库迁移：questions 增加收藏/回收站/配图/音频/共享/真题字段 七列；papers 增加 A/B 卷标记列
@@ -296,6 +399,11 @@ def ensure_schema():
     ccols = {r[1] for r in c.execute("PRAGMA table_info(exam_candidates)").fetchall()}
     if "answer_sheet_path" not in ccols:
         c.execute("ALTER TABLE exam_candidates ADD COLUMN answer_sheet_path TEXT DEFAULT ''")
+    # 邮箱验证码登录：users 补 email 列，演示账号自动回填邮箱（账号名@zhxx.cn）
+    ucols = {r[1] for r in c.execute("PRAGMA table_info(users)").fetchall()}
+    if "email" not in ucols:
+        c.execute("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''")
+    c.execute("UPDATE users SET email=LOWER(account)||'@zhxx.cn' WHERE (email IS NULL OR email='') AND account IN ('teacher','wangli')")
     conn.commit()
     conn.close()
 
@@ -311,8 +419,9 @@ def seed_if_empty():
     now = datetime.now().isoformat(timespec="seconds")
     for t in seed["credentials"]:
         c.execute(
-            "INSERT INTO users(account,password_hash,role,name,title) VALUES(?,?,?,?,?)",
-            (t["account"], hash_pw(t["password"]), t["role"], t["name"], t.get("title", "")),
+            "INSERT INTO users(account,password_hash,role,name,title,email) VALUES(?,?,?,?,?,?)",
+            (t["account"], hash_pw(t["password"]), t["role"], t["name"], t.get("title", ""),
+             (t.get("email") or (t["account"].lower() + "@zhxx.cn"))),
         )
     for s in seed["subjects"]:
         c.execute(
@@ -724,6 +833,118 @@ def change_password():
     log_action(user, "修改密码", user["account"])
     db().commit()
     return jsonify({"ok": True})
+
+
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _hash_email_code(email, code):
+    return hashlib.sha256(("zhxx-zj-email:" + email.lower() + ":" + code).encode("utf-8")).hexdigest()
+
+
+def _issue_email_code(email):
+    """生成并落库验证码（同邮箱旧码立即作废）；返回 (code, err_response)。"""
+    code = "%06d" % secrets.randbelow(1000000)
+    now_s = datetime.now().isoformat(timespec="seconds")
+    exp_s = (datetime.now() + timedelta(seconds=EMAIL_CODE_TTL)).isoformat(timespec="seconds")
+    conn = db()
+    conn.execute("UPDATE email_codes SET used=1 WHERE email=? AND used=0", (email,))
+    conn.execute(
+        "INSERT INTO email_codes(email,code_hash,attempts,used,created_at,expires_at) VALUES(?,?,0,0,?,?)",
+        (email, _hash_email_code(email, code), now_s, exp_s),
+    )
+    conn.commit()
+    return code, None
+
+
+@app.post("/api/auth/email-code")
+def email_code():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email", "")).strip().lower()
+    if not EMAIL_RE.match(email):
+        return jsonify({"error": "邮箱格式不正确"}), 400
+    row = db().execute("SELECT account FROM users WHERE LOWER(email)=?", (email,)).fetchone()
+    if not row:
+        return jsonify({"error": "该邮箱未绑定任何账号"}), 404
+    now_s = datetime.now()
+    last = db().execute(
+        "SELECT created_at FROM email_codes WHERE email=? ORDER BY id DESC LIMIT 1", (email,)
+    ).fetchone()
+    if last:
+        try:
+            elapsed = (now_s - datetime.fromisoformat(last["created_at"])).total_seconds()
+            if elapsed < EMAIL_RESEND_COOLDOWN:
+                wait = int(EMAIL_RESEND_COOLDOWN - elapsed) + 1
+                return jsonify({"error": "发送太频繁，请 %d 秒后再试" % wait}), 429
+        except ValueError:
+            pass
+    sent_hour = db().execute(
+        "SELECT COUNT(*) FROM email_codes WHERE email=? AND created_at>=?",
+        (email, (now_s - timedelta(hours=1)).isoformat(timespec="seconds")),
+    ).fetchone()[0]
+    if sent_hour >= EMAIL_HOURLY_CAP:
+        return jsonify({"error": "该邮箱验证码发送次数已达上限，请 1 小时后再试"}), 429
+
+    cfg = load_email_cfg()
+    if cfg.get("enabled"):
+        code, _ = _issue_email_code(email)
+        smtp_err = send_code_email(cfg, email, code)
+        if smtp_err:
+            return jsonify({"error": smtp_err}), 502
+        return jsonify({"ok": True, "ttl": EMAIL_CODE_TTL, "devCode": None})
+    if not dev_echo_allowed(cfg):
+        # 公网部署（EMAIL_DEV_ECHO=0）且未配置 SMTP：不落库、不回显，防止验证码泄露
+        return jsonify({"error": "邮件通道未配置：请使用密码登录，或联系管理员配置邮件服务"}), 503
+    # 开发模式：不发信，验证码回显到响应与后端控制台（本地联调用）
+    code, _ = _issue_email_code(email)
+    print("[邮箱验证码] %s -> %s（%d 分钟内有效，开发模式未真正发信）" % (email, code, EMAIL_CODE_TTL // 60))
+    return jsonify({"ok": True, "ttl": EMAIL_CODE_TTL, "devCode": code})
+
+
+@app.post("/api/auth/email-login")
+def email_login():
+    body = request.get_json(silent=True) or {}
+    email = str(body.get("email", "")).strip().lower()
+    code = str(body.get("code", "")).strip()
+    if not EMAIL_RE.match(email):
+        return jsonify({"error": "邮箱格式不正确"}), 400
+    if not re.match(r"^\d{6}$", code):
+        return jsonify({"error": "请输入 6 位数字验证码"}), 400
+    row = db().execute(
+        "SELECT * FROM email_codes WHERE email=? AND used=0 ORDER BY id DESC LIMIT 1", (email,)
+    ).fetchone()
+    if not row:
+        return jsonify({"error": "请先获取验证码"}), 400
+    if row["attempts"] >= EMAIL_MAX_ATTEMPTS:
+        return jsonify({"error": "错误次数过多，该验证码已作废，请重新获取"}), 400
+    now_s = datetime.now()
+    try:
+        expired = now_s > datetime.fromisoformat(row["expires_at"])
+    except ValueError:
+        expired = True
+    if expired:
+        return jsonify({"error": "验证码已过期，请重新获取"}), 400
+    if row["code_hash"] != _hash_email_code(email, code):
+        db().execute("UPDATE email_codes SET attempts=attempts+1 WHERE id=?", (row["id"],))
+        db().commit()
+        left = EMAIL_MAX_ATTEMPTS - row["attempts"] - 1
+        return jsonify({"error": "验证码不正确（剩余 %d 次机会）" % max(0, left)}), 400
+    db().execute("UPDATE email_codes SET used=1 WHERE id=?", (row["id"],))
+    user = db().execute("SELECT * FROM users WHERE LOWER(email)=?", (email,)).fetchone()
+    if not user:
+        return jsonify({"error": "该邮箱未绑定任何账号"}), 404
+    token = secrets.token_hex(16)
+    conn = db()
+    conn.execute(
+        "INSERT INTO sessions(token,account,role,name,created_at) VALUES(?,?,?,?,?)",
+        (token, user["account"], user["role"], user["name"], now_s.isoformat(timespec="seconds")),
+    )
+    log_action({"name": user["name"]}, "邮箱登录", user["account"])
+    conn.commit()
+    return jsonify({
+        "token": token,
+        "profile": {"role": user["role"], "name": user["name"], "title": user["title"] or "", "account": user["account"]},
+    })
 
 
 @app.get("/api/bootstrap")
@@ -2831,4 +3052,4 @@ if __name__ == "__main__":
     print("成都智慧象留学 · 国际课程组卷系统 后端已启动")
     print("访问 http://localhost:8687   （数据文件：backend/zujuan.db，删除即重置）")
     print("提示：学生进度追踪系统运行在 8686 端口，两套系统可同时开启。")
-    app.run(host="0.0.0.0", port=8687, threaded=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT") or 8687), threaded=True)

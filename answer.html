@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>在线答题 · 国际课程组卷系统</title>
-  <link rel="stylesheet" href="css/style.css?v=20260928c">
+  <link rel="stylesheet" href="css/style.css?v=20261001c">
 </head>
 <body>
 
@@ -23,27 +23,35 @@
   </header>
 
   <main class="page" id="main">
-    <div class="card" style="max-width:440px;margin:40px auto;">
-      <div class="section-head"><h2>进入考试</h2></div>
-      <p class="f-hint" style="margin-bottom:14px;">请输入老师提供的答题码与你的姓名（须在考生名单中）。</p>
+    <div class="ans-entry card">
+      <div class="ans-entry-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M5 4h9l5 5v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z"/>
+          <path d="M14 4v5h5"/><path d="M8.5 13h7M8.5 16.5h5"/>
+        </svg>
+      </div>
+      <h2 class="lc-title">进入考试</h2>
+      <p class="lc-sub">请输入老师提供的答题码与你的姓名（须在考生名单中）</p>
+
       <div class="form-item">
         <label>答题码 <span class="req">*</span></label>
-        <input type="text" id="in-code" placeholder="6 位答题码" style="text-transform:uppercase;font-family:var(--f-num);letter-spacing:3px;">
+        <input type="text" id="in-code" class="code-input" placeholder="6 位答题码" maxlength="8">
       </div>
-      <div class="form-item" style="margin-top:12px;">
+      <div class="form-item" style="margin-top:14px;">
         <label>姓名 <span class="req">*</span></label>
         <input type="text" id="in-name" placeholder="与老师登记的姓名一致">
       </div>
       <div class="login-error" id="in-error" role="alert">答题码不正确</div>
-      <button class="btn btn-primary btn-lg" id="btn-verify" style="width:100%;margin-top:18px;">进入考试</button>
+      <button class="btn btn-primary btn-lg" id="btn-verify" style="width:100%;margin-top:20px;">进入考试</button>
     </div>
   </main>
 
   <footer class="site-footer">成都智慧象留学 · 国际课程组卷系统</footer>
 
-  <script src="js/common.js?v=20260928c"></script>
-  <script src="js/mock-data.js?v=20260928c"></script>
-  <script src="js/api.js?v=20260928c"></script>
+  <script src="js/common.js?v=20261001c"></script>
+  <script src="js/mock-data.js?v=20261001c"></script>
+  <script src="js/api.js?v=20261001c"></script>
+  <script src="js/micro.js?v=20261001c"></script>
   <script>
     (function () {
       'use strict';
@@ -73,6 +81,7 @@
         Data.onlineVerify(params.get('examId') || 0, code, name).then(function (r) {
           ctx = { examId: Number(params.get('examId')), code: code, candidateId: r.candidateId, exam: r.exam, questions: r.questions };
           renderExam();
+          window.scrollTo(0, 0);
         }).catch(function (err) {
           setErr(err.message || '进入失败');
           btn.disabled = false; btn.textContent = '进入考试';
@@ -106,7 +115,7 @@
             (q.options || []).forEach(function (opt, j) {
               html += '<li><label class="opt-label" data-qid="' + q.questionId + '" data-value="' + optLetter(j) + '">' +
                 '<input type="' + (q.qtype === '多选题' ? 'checkbox' : 'radio') + '" name="q' + q.questionId + '" value="' + optLetter(j) + '"> ' +
-                '<b>' + optLetter(j) + '.</b> ' + ZJ.esc(String(opt).replace(/^[A-Za-z][.、．]\s*/, '')) + '</label></li>';
+                '<b>' + optLetter(j) + '</b> ' + ZJ.esc(String(opt).replace(/^[A-Za-z][.、．]\s*/, '')) + '</label></li>';
             });
             html += '</ul>';
           } else if (q.qtype === '判断题') {
@@ -169,6 +178,7 @@
             btn.disabled = true; btn.textContent = '提交中…';
             Data.onlineSubmit(ctx.examId, ctx.code, ctx.candidateId, answers).then(function (r) {
               renderResult(r);
+              window.scrollTo(0, 0);
             }).catch(function (err) {
               ZJ.toast(err.message, true);
               btn.disabled = false; btn.textContent = '交卷';
@@ -184,19 +194,21 @@
 
       function renderResult(r) {
         var html =
-          '<div class="card" style="max-width:560px;margin:30px auto;text-align:center;">' +
-          '  <div style="font-size:38px;">✅</div>' +
-          '  <h2 style="font-family:var(--f-serif);color:var(--c-navy-2);margin:10px 0 4px;">交卷成功</h2>' +
+          '<div class="card result-hero">' +
+          '  <div class="rh-mark" aria-hidden="true">' +
+          '    <svg viewBox="0 0 52 52" fill="none" stroke="currentColor"><circle cx="26" cy="26" r="24" stroke-width="2"/><path d="M15.5 27l7.5 7.5L37.5 19.5" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          '  </div>' +
+          '  <h2 class="rh-title">交卷成功</h2>' +
           '  <p class="f-hint">' + ZJ.esc(r.message) + '</p>' +
-          '  <div class="stat-grid" style="grid-template-columns:1fr 1fr;margin-top:18px;">' +
-          '    <div class="stat-card" style="justify-content:center;"><div class="stat-meta">' +
-          '      <div class="stat-value" style="font-size:26px;">' + r.objectiveScore + '</div>' +
+          '  <div class="stat-grid" style="grid-template-columns:1fr 1fr;margin-top:22px;">' +
+          '    <div class="stat-card" style="justify-content:center;"><div class="stat-meta" style="text-align:center;width:100%;">' +
+          '      <div class="stat-value" style="font-size:28px;">' + r.objectiveScore + '</div>' +
           '      <div class="stat-label">客观题自动得分</div></div></div>' +
-          '    <div class="stat-card" style="justify-content:center;"><div class="stat-meta">' +
-          '      <div class="stat-value" style="font-size:26px;">' + r.subjectiveCount + '</div>' +
+          '    <div class="stat-card" style="justify-content:center;"><div class="stat-meta" style="text-align:center;width:100%;">' +
+          '      <div class="stat-value" style="font-size:28px;">' + r.subjectiveCount + '</div>' +
           '      <div class="stat-label">主观题待批阅</div></div></div>' +
           '  </div>' +
-          '  <p class="f-hint" style="margin-top:16px;">成绩将由老师核对后发布，本页面可以关闭了。</p>' +
+          '  <p class="f-hint" style="margin-top:18px;">成绩将由老师核对后发布，本页面可以关闭了。</p>' +
           '</div>';
         document.getElementById('main').innerHTML = html;
       }

@@ -81,8 +81,16 @@ wangli  / zx123456   # 教研组长（teacher）
 |---|---|---|
 | POST | /api/ping | 模式探测（演示模式返回 404 → 前端自动切演示） |
 | POST | /api/auth/login · /api/auth/logout | 登录/登出 |
+| POST | /api/auth/email-code | 发送邮箱验证码；限频 60s/条、每小时 5 条，码 5 分钟有效、最多试 5 次；未配 SMTP 时为开发模式（响应回显 `devCode` + 后端控制台打印） |
+| POST | /api/auth/email-login | 邮箱验证码登录，签发与账密登录同构的会话令牌；审计动作「邮箱登录」 |
 | PUT | /api/me/password | 修改密码 |
 | GET | /api/bootstrap | 首屏（身份+科目库+统计+知识点标签） |
+
+> **邮件通道配置**：`backend/email_config.json`（缺文件 = 开发模式，验证码回显便于本地联调）。正式发信示例：
+> `{ "enabled": true, "host": "smtp.qq.com", "port": 465, "ssl": true, "username": "noreply@zhxx.cn", "password": "SMTP授权码", "sender": "成都智慧象留学 <noreply@zhxx.cn>" }`
+> 账号邮箱绑定在 `users.email`（演示账号 teacher@zhxx.cn / wangli@zhxx.cn；旧库启动时自动迁移回填）。
+>
+> **环境变量优先级高于配置文件**（云部署免改文件）：`EMAIL_SMTP_HOST / EMAIL_SMTP_PORT / EMAIL_SMTP_SSL / EMAIL_SMTP_USER / EMAIL_SMTP_PASS / EMAIL_SMTP_SENDER`（HOST+USER 齐备即启用发信）；**`EMAIL_DEV_ECHO=0` 强制关闭验证码回显（公网部署必设，render.yaml / Dockerfile 已内置）**，此时未配 SMTP 的发码请求返回 503 且不落库。部署指南见根目录 `DEPLOY.md`。
 
 ### 题库
 | 方法 | 路径 | 说明 |

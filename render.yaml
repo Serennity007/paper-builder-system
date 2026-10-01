@@ -1,0 +1,16 @@
+# Render 一键部署（免费档）：后端 + 页面同一服务，首次启动自动从 seed.json 建库
+# 数据存实例盘：免费档重新部署/重启会重置为种子数据（演示无影响；持久化需付费挂盘）
+services:
+  - type: web
+    name: zujuan-paper-builder
+    runtime: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && gunicorn wsgi:app --workers 2 --threads 4 --bind 0.0.0.0:$PORT
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      # 公网部署必须关闭验证码回显（防泄露）；接入正式邮件再配 EMAIL_SMTP_* 环境变量
+      - key: EMAIL_DEV_ECHO
+        value: "0"

@@ -77,6 +77,16 @@
           return data.profile;
         });
     },
+    sendEmailCode: function (email) {
+      return API.req('POST', '/api/auth/email-code', { email: email });
+    },
+    emailLogin: function (email, code) {
+      return API.req('POST', '/api/auth/email-login', { email: email, code: code })
+        .then(function (data) {
+          API.saveToken(data.token);
+          return data.profile;
+        });
+    },
     logout: function () {
       if (API.mode === 'server' && API.token) {
         API.req('POST', '/api/auth/logout').catch(function () { /* 忽略 */ });
@@ -367,6 +377,50 @@
       }
     }
     return Promise.reject(new Error('账号或密码不正确'));
+  }
+
+  /* 演示模式邮箱验证码：不发信，验证码经 devCode 回显（与服务端开发模式同口径） */
+  var DEMO_EMAIL_KEY = 'zhxx_zj_demo_email_code_v1';
+  var DEMO_EMAIL_TTL = 300000;
+  var DEMO_EMAIL_COOLDOWN = 60000;
+  var DEMO_EMAIL_MAX_ATTEMPTS = 5;
+
+  function demoFindEmailUser(email) {
+    var hit = null;
+    (window.ZJ_MOCK.credentials || []).forEach(function (c) {
+      if (String(c.email || '').toLowerCase() === String(email).toLowerCase()) { hit = c; }
+    });
+    return hit;
+  }
+  function demoSendEmailCode(email) {
+    email = String(email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { return Promise.reject(new Error('邮箱格式不正确')); }
+    if (!demoFindEmailUser(email)) { return Promise.reject(new Error('该邮箱未绑定任何账号')); }
+    var last = ssGet(DEMO_EMAIL_KEY, null);
+    if (last && last.email === email && Date.now() - last.sentAt < DEMO_EMAIL_COOLDOWN) {
+      return Promise.reject(new Error('发送太频繁，请稍后再试'));
+    }
+    var code = String(Math.floor(100000 + Math.random() * 900000));
+    ssSet(DEMO_EMAIL_KEY, { email: email, code: code, sentAt: Date.now(), expiresAt: Date.now() + DEMO_EMAIL_TTL, attempts: 0 });
+    return Promise.resolve({ ok: true, ttl: DEMO_EMAIL_TTL / 1000, devCode: code });
+  }
+  function demoEmailLogin(email, code) {
+    email = String(email || '').trim().toLowerCase();
+    code = String(code || '').trim();
+    if (!/^\d{6}$/.test(code)) { return Promise.reject(new Error('请输入 6 位数字验证码')); }
+    var rec = ssGet(DEMO_EMAIL_KEY, null);
+    if (!rec || rec.email !== email) { return Promise.reject(new Error('请先获取验证码')); }
+    if (Date.now() > rec.expiresAt) { return Promise.reject(new Error('验证码已过期，请重新获取')); }
+    if (rec.attempts >= DEMO_EMAIL_MAX_ATTEMPTS) { return Promise.reject(new Error('错误次数过多，该验证码已作废，请重新获取')); }
+    if (rec.code !== code) {
+      rec.attempts += 1;
+      ssSet(DEMO_EMAIL_KEY, rec);
+      return Promise.reject(new Error('验证码不正确（剩余 ' + Math.max(0, DEMO_EMAIL_MAX_ATTEMPTS - rec.attempts) + ' 次机会）'));
+    }
+    ssSet(DEMO_EMAIL_KEY, null);
+    var user = demoFindEmailUser(email);
+    if (!user) { return Promise.reject(new Error('该邮箱未绑定任何账号')); }
+    return Promise.resolve({ role: user.role, name: user.name, title: user.title, account: user.account });
   }
 
   function demoQuestionDict(q) { return JSON.parse(JSON.stringify(q)); }
@@ -1382,6 +1436,12 @@
     detect: function () { return API.detect(); },
     login: function (account, password) {
       return API.mode === 'server' ? API.login(account, password) : demoLogin(account, password);
+    },
+    sendEmailCode: function (email) {
+      return API.mode === 'server' ? API.sendEmailCode(email) : demoSendEmailCode(email);
+    },
+    emailLogin: function (email, code) {
+      return API.mode === 'server' ? API.emailLogin(email, code) : demoEmailLogin(email, code);
     },
     logout: function () { API.logout(); },
 

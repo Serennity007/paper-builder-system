@@ -4,23 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>登录 · 国际课程组卷系统</title>
-  <link rel="stylesheet" href="css/style.css?v=20260929a">
+  <link rel="stylesheet" href="css/style.css?v=20261001c">
 </head>
 <body class="login-body">
 
   <div class="login-wrap">
   <!-- 左侧：品牌区 -->
   <aside class="login-brand">
-    <h1 class="lb-name-zh">成都智慧象留学</h1>
-    <div class="lb-name-en">CHENGDU SMART ELEPHANT EDUCATION</div>
-    <div class="lb-divider"></div>
-    <p class="lb-slogan">让教研沉淀成一份份好卷子</p>
-    <p class="lb-system">国际课程组卷系统</p>
-    <div class="lb-programs" aria-label="国际课程体系">
-      <div class="pg-item"><div class="pg-name">IELTS</div><div class="pg-sub">雅思 4 科</div></div>
-      <div class="pg-item"><div class="pg-name">TOEFL</div><div class="pg-sub">托福 4 科</div></div>
-      <div class="pg-item"><div class="pg-name">A-Level</div><div class="pg-sub">4 门主流学科</div></div>
-      <div class="pg-item"><div class="pg-name">AP</div><div class="pg-sub">5 门美国先修</div></div>
+    <div class="lb-aura"></div>
+    <div class="lb-aura b"></div>
+    <div class="lb-papers" aria-hidden="true"><i class="f1"></i><i class="f2"></i></div>
+
+    <div class="lb-inner">
+      <div class="lb-eyebrow">Chengdu Smart Elephant Education</div>
+      <h1 class="lb-name-zh">成都智慧象留学</h1>
+      <p class="lb-slogan">让教研沉淀成一份份好卷子</p>
+      <p class="lb-system">国际课程组卷系统</p>
+      <div class="lb-programs" aria-label="国际课程体系">
+        <div class="pg-item"><div class="pg-name">IELTS</div><div class="pg-sub">雅思 4 科</div></div>
+        <div class="pg-item"><div class="pg-name">TOEFL</div><div class="pg-sub">托福 4 科</div></div>
+        <div class="pg-item"><div class="pg-name">A-Level</div><div class="pg-sub">4 门主流学科</div></div>
+        <div class="pg-item"><div class="pg-name">AP</div><div class="pg-sub">5 门美国先修</div></div>
+      </div>
     </div>
     <div class="lb-foot">成都智慧象留学 · 教研组卷工作台</div>
   </aside>
@@ -31,16 +36,48 @@
       <h2 class="lc-title">教师登录</h2>
       <p class="lc-sub">智能组卷 · 题库管理 · 试卷导出</p>
 
+      <div class="login-tabs" id="login-tabs" role="tablist" aria-label="登录方式">
+        <button type="button" class="ltab on" data-ltab="pwd" role="tab" aria-selected="true">密码登录</button>
+        <button type="button" class="ltab" data-ltab="email" role="tab" aria-selected="false">邮箱验证码</button>
+      </div>
+
       <form id="login-form" autocomplete="off" novalidate>
-        <div class="field" id="field-account">
-          <label for="account">账号</label>
-          <input type="text" id="account" placeholder="请输入教师账号">
-          <span class="f-hint">演示账号：teacher / wangli</span>
+        <div id="panel-pwd">
+          <div class="field" id="field-account">
+            <label for="account">账号</label>
+            <input type="text" id="account" placeholder="请输入教师账号">
+            <span class="f-hint">演示账号：teacher / wangli</span>
+          </div>
+          <div class="field" id="field-password" style="position:relative;">
+            <label for="password">密码</label>
+            <input type="password" id="password" placeholder="请输入密码" style="padding-right:46px;">
+            <button type="button" id="btn-eye" aria-label="显示或隐藏密码" title="显示 / 隐藏密码"
+              style="position:absolute;right:8px;bottom:34px;width:32px;height:32px;border:none;background:transparent;color:var(--c-text-light);display:inline-flex;align-items:center;justify-content:center;border-radius:6px;transition:color .18s,background .18s;">
+              <svg id="eye-on" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7">
+                <path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.6"/>
+              </svg>
+              <svg id="eye-off" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" style="display:none;">
+                <path d="M2 12s3.5-6.5 10-6.5c2 0 3.7.6 5.2 1.5M22 12s-3.5 6.5-10 6.5c-2 0-3.7-.6-5.2-1.5"/><path d="M4 20L20 4"/>
+              </svg>
+            </button>
+            <span class="f-hint">演示密码：zx123456</span>
+          </div>
         </div>
-        <div class="field" id="field-password">
-          <label for="password">密码</label>
-          <input type="password" id="password" placeholder="请输入密码">
-          <span class="f-hint">演示密码：zx123456</span>
+
+        <div id="panel-email" hidden>
+          <div class="field" id="field-email">
+            <label for="email">邮箱</label>
+            <input type="email" id="email" placeholder="接收验证码的教师邮箱">
+            <span class="f-hint">演示邮箱：teacher@zhxx.cn / wangli@zhxx.cn</span>
+          </div>
+          <div class="field" id="field-code">
+            <label for="code">验证码</label>
+            <div class="code-row">
+              <input type="text" id="code" placeholder="6 位数字" maxlength="6" inputmode="numeric">
+              <button type="button" class="code-btn" id="btn-send-code">获取验证码</button>
+            </div>
+            <span class="f-hint" id="code-hint">验证码 5 分钟内有效，60 秒后可重新获取</span>
+          </div>
         </div>
 
         <div class="login-error" id="login-error" role="alert">账号或密码不正确</div>
@@ -49,16 +86,17 @@
       </form>
 
       <div class="login-mode-note" id="mode-note">正在探测运行环境…</div>
-      <div class="login-mode-note" style="margin-top:6px;">
-        学生作答入口：<a href="answer.html" style="color:var(--c-gold-deep);border-bottom:1px solid var(--c-gold);">在线答题（凭老师提供的答题码）</a>
+      <div class="login-mode-note" style="margin-top:8px;">
+        学生作答入口：<a href="answer.html" style="color:var(--c-gold-deep);border-bottom:1px solid var(--c-gold);padding-bottom:1px;">在线答题（凭老师提供的答题码）</a>
       </div>
     </section>
   </main>
   </div>
 
-  <script src="js/common.js?v=20260929a"></script>
-  <script src="js/mock-data.js?v=20260929a"></script>
-  <script src="js/api.js?v=20260929a"></script>
+  <script src="js/common.js?v=20261001c"></script>
+  <script src="js/mock-data.js?v=20261001c"></script>
+  <script src="js/api.js?v=20261001c"></script>
+  <script src="js/micro.js?v=20261001c"></script>
   <script>
     (function () {
       'use strict';
@@ -68,17 +106,92 @@
 
       window.ZJ.injectWatermark();
 
+      var panels = { pwd: document.getElementById('panel-pwd'), email: document.getElementById('panel-email') };
+      var errFields = { pwd: ['field-account', 'field-password'], email: ['field-email', 'field-code'] };
+      var loginMode = 'pwd';
+
       function setErr(msg) {
         errBox.textContent = msg;
         errBox.classList.add('show');
-        document.getElementById('field-account').classList.add('err');
-        document.getElementById('field-password').classList.add('err');
+        (errFields[loginMode] || []).forEach(function (id) {
+          document.getElementById(id).classList.add('err');
+        });
       }
       function clearErr() {
         errBox.classList.remove('show');
-        document.getElementById('field-account').classList.remove('err');
-        document.getElementById('field-password').classList.remove('err');
+        ['field-account', 'field-password', 'field-email', 'field-code'].forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) { el.classList.remove('err'); }
+        });
       }
+
+      /* 登录方式页签 */
+      document.getElementById('login-tabs').addEventListener('click', function (e) {
+        var tab = e.target.closest('.ltab');
+        if (!tab || tab.dataset.ltab === loginMode) { return; }
+        loginMode = tab.dataset.ltab;
+        document.querySelectorAll('.ltab').forEach(function (t) {
+          var on = t === tab;
+          t.classList.toggle('on', on);
+          t.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        panels.pwd.hidden = loginMode !== 'pwd';
+        panels.email.hidden = loginMode !== 'email';
+        clearErr();
+      });
+
+      /* 密码可见性切换 */
+      var eyeBtn = document.getElementById('btn-eye');
+      eyeBtn.addEventListener('click', function () {
+        var input = document.getElementById('password');
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
+        document.getElementById('eye-on').style.display = show ? 'none' : '';
+        document.getElementById('eye-off').style.display = show ? '' : 'none';
+        input.focus();
+      });
+
+      /* 获取验证码（60 秒倒计时；开发模式回显验证码便于本地联调） */
+      var sendBtn = document.getElementById('btn-send-code');
+      var codeHint = document.getElementById('code-hint');
+      var cdTimer = null;
+      function startCountdown() {
+        var left = 60;
+        sendBtn.disabled = true;
+        sendBtn.textContent = '重新获取(' + left + 's)';
+        clearInterval(cdTimer);
+        cdTimer = setInterval(function () {
+          left -= 1;
+          if (left <= 0) {
+            clearInterval(cdTimer);
+            sendBtn.disabled = false;
+            sendBtn.textContent = '重新获取';
+          } else {
+            sendBtn.textContent = '重新获取(' + left + 's)';
+          }
+        }, 1000);
+      }
+      sendBtn.addEventListener('click', function () {
+        clearErr();
+        var email = document.getElementById('email').value.trim();
+        if (!email) { setErr('请输入邮箱'); return; }
+        sendBtn.disabled = true;
+        sendBtn.textContent = '发送中…';
+        window.ZJ_Data.sendEmailCode(email).then(function (res) {
+          if (res && res.devCode) {
+            codeHint.innerHTML = '开发模式模拟发送（未配置 SMTP），验证码：<b style="color:var(--c-gold-deep);font-family:var(--f-num);letter-spacing:1px;">' +
+              window.ZJ.esc(res.devCode) + '</b>，5 分钟内有效';
+          } else {
+            codeHint.textContent = '验证码已发送至 ' + email + '，请查收';
+          }
+          window.ZJ.toast('验证码已发送');
+          startCountdown();
+        }).catch(function (err) {
+          setErr(err.message || '验证码发送失败');
+          sendBtn.disabled = false;
+          sendBtn.textContent = '获取验证码';
+        });
+      });
 
       // 已登录直接进工作台
       var auth = window.ZJ.loadAuth();
@@ -96,6 +209,24 @@
       form.addEventListener('submit', function (e) {
         e.preventDefault();
         clearErr();
+        var finish = function (profile) {
+          window.ZJ.saveAuth(profile);
+          location.replace('admin.html');
+        };
+        var fail = function (err) {
+          setErr(err.message || '登录失败，请重试');
+          btn.disabled = false;
+          btn.textContent = '登 录';
+        };
+        if (loginMode === 'email') {
+          var email = document.getElementById('email').value.trim();
+          var code = document.getElementById('code').value.trim();
+          if (!email || !code) { setErr('请输入邮箱与验证码'); return; }
+          btn.disabled = true;
+          btn.textContent = '登录中…';
+          window.ZJ_Data.emailLogin(email, code).then(finish).catch(fail);
+          return;
+        }
         var account = document.getElementById('account').value.trim();
         var password = document.getElementById('password').value;
         if (!account || !password) {
@@ -104,14 +235,7 @@
         }
         btn.disabled = true;
         btn.textContent = '登录中…';
-        window.ZJ_Data.login(account, password).then(function (profile) {
-          window.ZJ.saveAuth(profile);
-          location.replace('admin.html');
-        }).catch(function (err) {
-          setErr(err.message || '账号或密码不正确');
-          btn.disabled = false;
-          btn.textContent = '登 录';
-        });
+        window.ZJ_Data.login(account, password).then(finish).catch(fail);
       });
     })();
   </script>
