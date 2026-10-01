@@ -14,6 +14,7 @@
   var practiceFilters = { year: '', session: '', difficulty: '' };
   var archiveFilters = { paper: '全部', year: '', session: '', status: '全部状态' };
   var epCache = [];                // 真题卷缓存
+  var pendingPdfs = { qp: null, ms: null };
 
   function init(ctx) {
     try {
@@ -53,6 +54,9 @@
             .catch(function (err) { ZJ.toast(err.message, true); });
         });
       }
+      else if (act === 'preview-qp' || act === 'preview-ms') {
+        Data.previewExamPaperPdf(id, act.slice(8)).catch(function (err) { ZJ.toast(err.message, true); });
+      }
     });
     ['ar-paper', 'ar-year', 'ar-session', 'ar-status'].forEach(function (id) {
       document.getElementById(id).addEventListener('change', function () {
@@ -68,10 +72,12 @@
     document.getElementById('btn-ep-qp').addEventListener('click', function () { document.getElementById('ep-qp-file').click(); });
     document.getElementById('btn-ep-ms').addEventListener('click', function () { document.getElementById('ep-ms-file').click(); });
     document.getElementById('ep-qp-file').addEventListener('change', function () {
-      uploadTo(this, function (r) { document.getElementById('ep-qp-url').value = r.path; ZJ.toast('QP 已上传'); });
+      pendingPdfs.qp = this.files[0] || null;
+      document.getElementById('ep-qp-name').textContent = pendingPdfs.qp ? pendingPdfs.qp.name + '（保存时上传）' : '';
     });
     document.getElementById('ep-ms-file').addEventListener('change', function () {
-      uploadTo(this, function (r) { document.getElementById('ep-ms-url').value = r.path; ZJ.toast('MS 已上传'); });
+      pendingPdfs.ms = this.files[0] || null;
+      document.getElementById('ep-ms-name').textContent = pendingPdfs.ms ? pendingPdfs.ms.name + '（保存时上传）' : '';
     });
   }
 
@@ -104,8 +110,8 @@
           '<td><span class="tag ' + (p.status === 'published' ? 'tag-ok' : p.status === 'draft' ? 'tag-draft' : 'tag-off') + '">' +
           (p.status === 'published' ? '已发布' : p.status === 'draft' ? '草稿' : '已下架') + '</span></td>' +
           '<td><div class="row-actions">' +
-          (p.qpUrl ? '<a class="btn-mini primary" href="/' + ZJ.esc(p.qpUrl) + '" target="_blank">QP</a>' : '<span class="cell-sub">QP 未传</span>') +
-          (p.msUrl ? '<a class="btn-mini primary" href="/' + ZJ.esc(p.msUrl) + '" target="_blank">MS</a>' : '<span class="cell-sub">MS 未传</span>') +
+          (p.qpAvailable ? '<button class="btn-mini primary" data-act="preview-qp" data-id="' + p.id + '">QP</button>' : '<span class="cell-sub">QP 未传</span>') +
+          (p.msAvailable ? '<button class="btn-mini primary" data-act="preview-ms" data-id="' + p.id + '">MS</button>' : '<span class="cell-sub">MS 未传</span>') +
           '<button class="btn-mini gold" data-act="edit" data-id="' + p.id + '">编辑</button>' +
           '<button class="btn-mini danger" data-act="del" data-id="' + p.id + '">删除</button>' +
           '</div></td></tr>';
@@ -122,9 +128,16 @@
     document.getElementById('ep-code').value = p ? (p.paperCode || '') : '';
     document.getElementById('ep-year').value = p ? p.year : ZJ.todayStr().slice(0, 4);
     document.getElementById('ep-session').value = p ? (p.session || 'June') : 'June';
-    document.getElementById('ep-qp-url').value = p ? (p.qpUrl || '') : '';
-    document.getElementById('ep-ms-url').value = p ? (p.msUrl || '') : '';
-    document.getElementById('ep-status').value = p ? p.status : 'published';
+    document.getElementById('ep-qp-source').value = p ? (p.qpSource || '') : '';
+    document.getElementById('ep-ms-source').value = p ? (p.msSource || '') : '';
+    document.getElementById('ep-permission-note').value = p ? (p.permissionNote || '') : '';
+    document.getElementById('ep-display-scope').value = p ? (p.displayScope || 'internal') : 'internal';
+    document.getElementById('ep-status').value = p ? p.status : 'draft';
+    pendingPdfs = { qp: null, ms: null };
+    ['qp', 'ms'].forEach(function (kind) {
+      document.getElementById('ep-' + kind + '-file').value = '';
+      document.getElementById('ep-' + kind + '-name').textContent = p && p[kind + 'Available'] ? '已上传（可在列表预览）' : '尚未上传';
+    });
     ZJ.openModal('modal-exampaper');
   }
 
@@ -135,16 +148,24 @@
       paperCode: document.getElementById('ep-code').value.trim(),
       year: Number(document.getElementById('ep-year').value),
       session: document.getElementById('ep-session').value,
-      qpUrl: document.getElementById('ep-qp-url').value.trim(),
-      msUrl: document.getElementById('ep-ms-url').value.trim(),
+      qpSource: document.getElementById('ep-qp-source').value.trim(),
+      msSource: document.getElementById('ep-ms-source').value.trim(),
+      permissionNote: document.getElementById('ep-permission-note').value.trim(),
+      displayScope: document.getElementById('ep-display-scope').value,
       status: document.getElementById('ep-status').value
     };
     var req = id ? Data.updateExamPaper(Number(id), fields) : Data.createExamPaper(fields);
-    req.then(function () {
+    req.then(function (paper) {
+      return ['qp', 'ms'].reduce(function (chain, kind) {
+        return chain.then(function () {
+          return pendingPdfs[kind] ? Data.uploadExamPaperPdf(paper.id, kind, pendingPdfs[kind]) : null;
+        });
+      }, Promise.resolve());
+    }).then(function () {
       ZJ.toast(id ? '真题卷已更新' : '真题卷已创建');
       ZJ.closeModal('modal-exampaper');
       loadArchive();
-    }).catch(function (err) { ZJ.toast(err.message, true); });
+    }).catch(function (err) { ZJ.toast('元数据可能已保存；PDF 上传失败时请重新打开记录检查。' + err.message, true); loadArchive(); });
   }
 
   /* ================= 知识点刷题 ================= */

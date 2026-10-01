@@ -583,7 +583,7 @@
             <input type="number" id="ep-year" min="2000" max="2030">
           </div>
           <div class="form-item">
-            <label>考季</label>
+            <label>考季 <span class="req">*</span></label>
             <select id="ep-session"><option value="January">January</option><option value="June">June</option><option value="October">October</option><option value="November">November</option></select>
           </div>
           <div class="form-item">
@@ -592,13 +592,18 @@
           </div>
           <div class="form-item">
             <label>状态</label>
-            <select id="ep-status"><option value="published">已发布</option><option value="draft">草稿</option><option value="disabled">已下架</option></select>
+            <select id="ep-status"><option value="draft">草稿</option><option value="published">已发布</option><option value="disabled">已下架</option></select>
           </div>
+        </div>
+        <div class="form-grid" style="margin-top:14px;">
+          <div class="form-item"><label>QP 来源说明</label><input type="text" id="ep-qp-source" placeholder="例如：教研提供的 Pearson 原卷"></div>
+          <div class="form-item"><label>MS 来源说明</label><input type="text" id="ep-ms-source" placeholder="对应的官方评分方案"></div>
+          <div class="form-item"><label>展示与使用权限备注</label><input type="text" id="ep-permission-note" placeholder="仅供内部演示；公开使用待确认"></div>
+          <div class="form-item"><label>展示范围</label><select id="ep-display-scope"><option value="internal">仅教研后台</option><option value="public">公开原卷元数据</option></select></div>
         </div>
         <div class="form-grid" style="margin-top:14px;">
           <div class="form-item">
             <label>Question Paper PDF</label>
-            <input type="hidden" id="ep-qp-url">
             <div style="display:flex;gap:8px;align-items:center;">
               <input type="file" id="ep-qp-file" accept=".pdf" hidden>
               <button type="button" class="btn btn-ghost" id="btn-ep-qp">上传 QP</button>
@@ -607,7 +612,6 @@
           </div>
           <div class="form-item">
             <label>Mark Scheme PDF</label>
-            <input type="hidden" id="ep-ms-url">
             <div style="display:flex;gap:8px;align-items:center;">
               <input type="file" id="ep-ms-file" accept=".pdf" hidden>
               <button type="button" class="btn btn-ghost" id="btn-ep-ms">上传 MS</button>

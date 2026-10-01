@@ -49,6 +49,7 @@ from flask import Flask, g, jsonify, request, send_file, send_from_directory
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))          # .../06-组卷系统/backend
 STATIC_DIR = os.path.dirname(BASE_DIR)                          # .../06-组卷系统
 DB_PATH = os.path.join(BASE_DIR, "zujuan.db")
+PRIVATE_PDF_DIR = os.path.join(BASE_DIR, "private", "exam_papers")
 SEED_PATH = os.path.join(BASE_DIR, "seed.json")
 
 app = Flask(__name__, static_folder=None)
@@ -226,6 +227,13 @@ def ensure_schema():
             session TEXT DEFAULT '',                -- January / June / October
             qp_url TEXT DEFAULT '',
             ms_url TEXT DEFAULT '',
+            qp_source TEXT DEFAULT '',
+            ms_source TEXT DEFAULT '',
+            qp_file TEXT DEFAULT '',
+            ms_file TEXT DEFAULT '',
+            resource_status TEXT NOT NULL DEFAULT 'missing',
+            display_scope TEXT NOT NULL DEFAULT 'internal',
+            permission_note TEXT DEFAULT '',
             resource_type TEXT NOT NULL DEFAULT 'owned_content',
             status TEXT NOT NULL DEFAULT 'published',   -- draft / published / disabled
             created_by TEXT DEFAULT '',
@@ -276,6 +284,16 @@ def ensure_schema():
         c.execute("ALTER TABLE questions ADD COLUMN subtopic_id INTEGER")
     if "answer_image_url" not in qcols:
         c.execute("ALTER TABLE questions ADD COLUMN answer_image_url TEXT DEFAULT ''")
+    epcols = {r[1] for r in c.execute("PRAGMA table_info(exam_papers)").fetchall()}
+    for name, definition in {
+        "qp_source": "TEXT DEFAULT ''", "ms_source": "TEXT DEFAULT ''",
+        "qp_file": "TEXT DEFAULT ''", "ms_file": "TEXT DEFAULT ''",
+        "resource_status": "TEXT NOT NULL DEFAULT 'missing'",
+        "display_scope": "TEXT NOT NULL DEFAULT 'internal'",
+        "permission_note": "TEXT DEFAULT ''",
+    }.items():
+        if name not in epcols:
+            c.execute(f"ALTER TABLE exam_papers ADD COLUMN {name} {definition}")
     # 知识树：真题卷维度（paper_scope）与排序
     kcols = {r[1] for r in c.execute("PRAGMA table_info(knowledge_nodes)").fetchall()}
     if "paper_scope" not in kcols:
@@ -664,8 +682,13 @@ def no_cache(resp):
 @app.route("/", defaults={"path": "index.html"})
 @app.route("/<path:path>")
 def static_files(path):
+    parts = path.split("/")
+    if not (path in {"index.html", "admin.html", "answer.html", "print.html"}
+            or (len(parts) > 1 and parts[0] in {"css", "js", "vendor", "assets"})):
+        return "Not Found", 404
     target = os.path.normpath(os.path.join(STATIC_DIR, path))
-    if not target.startswith(STATIC_DIR) or not os.path.isfile(target):
+    public_root = os.path.join(STATIC_DIR, parts[0]) if len(parts) > 1 else STATIC_DIR
+    if os.path.commonpath((public_root, target)) != public_root or not os.path.isfile(target):
         return "Not Found", 404
     return send_from_directory(STATIC_DIR, path)
 
@@ -1050,12 +1073,11 @@ def check_duplicate():
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 UPLOAD_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".webp"}
 AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".aac", ".webm"}
-DOC_EXTS = {".pdf"}
 
 
 @app.post("/api/upload")
 def upload_file():
-    """文件上传：图片（≤5MB）、音频（≤20MB）、QP/MS PDF（≤20MB），存 backend/uploads/。"""
+    """Legacy public media upload. Source QP/MS PDFs use private exam-paper endpoints."""
     user, err = require_role("teacher")
     if err:
         return err
@@ -1065,12 +1087,10 @@ def upload_file():
     ext = os.path.splitext(file.filename)[1].lower()
     if ext in AUDIO_EXTS:
         limit, kind = 20 * 1024 * 1024, "audio"
-    elif ext in DOC_EXTS:
-        limit, kind = 20 * 1024 * 1024, "file"
     elif ext in UPLOAD_EXTS:
         limit, kind = 5 * 1024 * 1024, "image"
     else:
-        return jsonify({"error": "仅支持图片 / 音频 / PDF 文件"}), 400
+        return jsonify({"error": "此接口仅支持图片/音频；原始 QP/MS PDF 请从真题卷上传"}), 400
     file.seek(0, os.SEEK_END)
     if file.tell() > limit:
         return jsonify({"error": ("音频" if kind == "audio" else "图片") + "超出大小限制"}), 400
@@ -2573,6 +2593,13 @@ def exam_paper_to_dict(row):
         "session": row["session"] or "",
         "qpUrl": row["qp_url"] or "",
         "msUrl": row["ms_url"] or "",
+        "qpSource": row["qp_source"] or "",
+        "msSource": row["ms_source"] or "",
+        "qpAvailable": bool(row["qp_file"]),
+        "msAvailable": bool(row["ms_file"]),
+        "resourceStatus": row["resource_status"],
+        "displayScope": row["display_scope"],
+        "permissionNote": row["permission_note"] or "",
         "resourceType": row["resource_type"] or "owned_content",
         "status": row["status"],
         "questionCount": db().execute(
@@ -2590,7 +2617,7 @@ def list_exam_papers():
         return err
     conds, params = ["1=1"], []
     if user["role"] == "student":
-        conds.append("status='published'")
+        conds.append("status='published' AND display_scope='public'")
     else:
         status = request.args.get("status", "").strip()
         if status and status != "全部状态":
@@ -2622,23 +2649,39 @@ def create_exam_paper():
         return err
     body = request.get_json(silent=True) or {}
     paper_name = str(body.get("paperName", "")).strip()
-    year = int(body.get("year") or 0)
+    try:
+        year = int(body.get("year") or 0)
+    except (ValueError, TypeError):
+        return jsonify({"error": "年份无效"}), 400
     if paper_name not in ("P1", "P2"):
         return jsonify({"error": "paperName 须为 P1 或 P2"}), 400
-    if not year:
+    if year < 2000 or year > 2100:
         return jsonify({"error": "请填写年份"}), 400
+    if str(body.get("examBoard", "Edexcel")).strip() != "Edexcel":
+        return jsonify({"error": "本阶段只支持 Edexcel"}), 400
+    if body.get("qualification", "IAL") != "IAL" or body.get("subject", "Mathematics") != "Mathematics":
+        return jsonify({"error": "本阶段只支持 IAL Mathematics"}), 400
+    session_ = str(body.get("session", "")).strip()
+    if not session_:
+        return jsonify({"error": "请填写考季"}), 400
+    if body.get("qpUrl") or body.get("msUrl"):
+        return jsonify({"error": "原始 PDF 请创建记录后通过私有上传接口关联"}), 400
+    display_scope = body.get("displayScope", "internal")
+    if display_scope not in ("internal", "public"):
+        return jsonify({"error": "展示范围无效"}), 400
     now = datetime.now().isoformat(timespec="seconds")
     conn = db()
     conn.execute(
-        "INSERT INTO exam_papers(exam_board,qualification,subject,paper_name,paper_code,year,session,qp_url,ms_url,resource_type,status,created_by,created_at,updated_at)"
-        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO exam_papers(exam_board,qualification,subject,paper_name,paper_code,year,session,qp_source,ms_source,permission_note,display_scope,resource_status,status,created_by,created_at,updated_at)"
+        " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (str(body.get("examBoard", "Edexcel")).strip() or "Edexcel",
          str(body.get("qualification", "IAL")).strip() or "IAL",
          str(body.get("subject", "Mathematics")).strip() or "Mathematics",
          paper_name, str(body.get("paperCode", "")).strip(), year,
-         str(body.get("session", "")).strip(), str(body.get("qpUrl", "")).strip(),
-         str(body.get("msUrl", "")).strip(), str(body.get("resourceType", "owned_content")).strip(),
-         body.get("status", "published") if body.get("status") in ("draft", "published", "disabled") else "published",
+         session_, str(body.get("qpSource", "")).strip(),
+         str(body.get("msSource", "")).strip(), str(body.get("permissionNote", "")).strip(),
+         display_scope, "missing",
+         body.get("status", "draft") if body.get("status") in ("draft", "published", "disabled") else "draft",
          user["account"], now, now),
     )
     epid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -2661,13 +2704,30 @@ def update_exam_paper(epid):
     status = body.get("status", row["status"])
     if status not in ("draft", "published", "disabled"):
         status = row["status"]
+    paper_name = body.get("paperName", row["paper_name"])
+    if paper_name not in ("P1", "P2"):
+        return jsonify({"error": "paperName 须为 P1 或 P2"}), 400
+    try:
+        year = int(body.get("year", row["year"]))
+    except (TypeError, ValueError):
+        return jsonify({"error": "年份无效"}), 400
+    if year < 2000 or year > 2100:
+        return jsonify({"error": "年份无效"}), 400
+    session_ = str(body.get("session", row["session"])).strip()
+    if not session_:
+        return jsonify({"error": "请填写考季"}), 400
+    if body.get("qpUrl") or body.get("msUrl"):
+        return jsonify({"error": "请通过私有上传接口关联 PDF"}), 400
+    display_scope = body.get("displayScope", row["display_scope"])
+    if display_scope not in ("internal", "public"):
+        return jsonify({"error": "展示范围无效"}), 400
     db().execute(
-        "UPDATE exam_papers SET paper_code=?, qp_url=?, ms_url=?, resource_type=?, status=?, updated_at=? WHERE id=?",
-        (str(body.get("paperCode", row["paper_code"])).strip(),
-         str(body.get("qpUrl", row["qp_url"])).strip(),
-         str(body.get("msUrl", row["ms_url"])).strip(),
-         str(body.get("resourceType", row["resource_type"])).strip(),
-         status, now, epid),
+        "UPDATE exam_papers SET paper_name=?, year=?, session=?, paper_code=?, qp_source=?, ms_source=?, permission_note=?, display_scope=?, status=?, updated_at=? WHERE id=?",
+        (paper_name, year, session_,
+         str(body.get("paperCode", row["paper_code"])).strip(),
+         str(body.get("qpSource", row["qp_source"])).strip(),
+         str(body.get("msSource", row["ms_source"])).strip(),
+         str(body.get("permissionNote", row["permission_note"])).strip(), display_scope, status, now, epid),
     )
     log_action(user, "编辑真题卷", row["paper_name"], str(row["year"]))
     db().commit()
@@ -2689,6 +2749,80 @@ def delete_exam_paper(epid):
     log_action(user, "删除真题卷", row["paper_name"], str(row["year"]))
     conn.commit()
     return jsonify({"ok": True})
+
+
+@app.get("/api/exam-papers/<int:epid>")
+def get_exam_paper(epid):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row:
+        return jsonify({"error": "真题卷不存在"}), 404
+    return jsonify({"examPaper": exam_paper_to_dict(row)})
+
+
+@app.post("/api/exam-papers/<int:epid>/files/<kind>")
+def upload_exam_paper_pdf(epid, kind):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    if kind not in ("qp", "ms"):
+        return jsonify({"error": "文件类型无效"}), 400
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row:
+        return jsonify({"error": "真题卷不存在"}), 404
+    file = request.files.get("file")
+    if not file or not file.filename or not file.filename.lower().endswith(".pdf"):
+        return jsonify({"error": "请选择 PDF 文件"}), 400
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size < 8 or size > 30 * 1024 * 1024 or file.read(5) != b"%PDF-":
+        return jsonify({"error": "PDF 格式无效或超过 30 MB"}), 400
+    file.seek(0)
+    paper_dir = os.path.join(PRIVATE_PDF_DIR, str(epid))
+    os.makedirs(paper_dir, mode=0o700, exist_ok=True)
+    filename = kind + "_" + secrets.token_hex(16) + ".pdf"
+    path = os.path.join(paper_dir, filename)
+    with open(path, "xb") as output:
+        os.chmod(path, 0o600)
+        file.save(output)
+    try:
+        db().execute(
+            f"UPDATE exam_papers SET {kind}_file=?, resource_status=?, updated_at=? WHERE id=?",
+            (filename, "ready" if (kind == "qp" and row["ms_file"] or kind == "ms" and row["qp_file"]) else "partial",
+             datetime.now().isoformat(timespec="seconds"), epid),
+        )
+        log_action(user, "上传原始真题PDF", str(epid), kind)
+        db().commit()
+    except Exception:
+        os.remove(path)
+        raise
+    fresh = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    return jsonify({"examPaper": exam_paper_to_dict(fresh)})
+
+
+@app.get("/api/exam-papers/<int:epid>/files/<kind>")
+def preview_exam_paper_pdf(epid, kind):
+    user, err = require_role("teacher")
+    if err:
+        return err
+    if kind not in ("qp", "ms"):
+        return jsonify({"error": "文件类型无效"}), 400
+    row = db().execute("SELECT * FROM exam_papers WHERE id=?", (epid,)).fetchone()
+    if not row:
+        return jsonify({"error": "真题卷不存在"}), 404
+    filename = row[kind + "_file"]
+    if not filename or os.path.basename(filename) != filename:
+        return jsonify({"error": "原始 PDF 不可用"}), 404
+    path = os.path.join(PRIVATE_PDF_DIR, str(epid), filename)
+    if not os.path.isfile(path):
+        return jsonify({"error": "原始 PDF 不可用"}), 404
+    resp = send_file(path, mimetype="application/pdf", as_attachment=False,
+                     download_name=f"Edexcel_{row['paper_name']}_{row['year']}_{row['session']}_{kind.upper()}.pdf")
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    return resp
 
 
 @app.get("/api/exam-topics")

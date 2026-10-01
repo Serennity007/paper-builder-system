@@ -3,6 +3,7 @@ backend/zujuan.db
 backend/export_tmp.xlsx
 backend/import_template.xlsx
 backend/uploads/
+backend/private/
 *.log
 __pycache__/
 
