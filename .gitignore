@@ -9,3 +9,4 @@ __pycache__/
 
 # 静态演示仓为独立仓库（https://github.com/Serennity007/paper-builder-demo）
 github-pages-repo/
+.DS_Store
