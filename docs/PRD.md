@@ -1,433 +1,135 @@
-# 国际课程题库与智能组卷平台 · 产品需求文档（PRD）
+# Edexcel IAL 数学 P1/P2 智能组卷 · 产品需求文档
 
-> v1.0 · MVP 范围：Pearson Edexcel IAL Mathematics P1 / P2
-> 项目核心闭环：真题结构化 → 知识点找题 → 单题查看/答案 → 选题组卷 → Question Paper / Mark Scheme PDF 下载
+> v1.1 · 2026 年 10 月公司展示 Demo 版 · 2026-10-01
+> 本版替代本仓库 v1.0 的阶段优先级；原始 `International_Maths_PRD_v1.0.pdf` 保留为历史基线。本文定义展示目标和验收，不表示相应功能已经实现。
 
-| 文档类型 | 产品需求 / 开发交付说明 |
+| 项目 | 本版决定 |
 |---|---|
-| 第一阶段产品形态 | Web 应用（用户端 + 管理端）→ 第二阶段微信小程序 |
-| 目标用户 | 国际课程数学学生 / 教师 / 平台管理员 |
-| 第一阶段课程范围 | Pearson Edexcel IAL Mathematics P1、P2 |
-| 版本日期 | 2026-09-29 |
-| 现有基础 | paper-builder-system 仓库（组卷闭环已上线：双栏组卷工作区、智能组卷、87 题种子库、在线答题、统计报告、打印/Word 导出） |
+| 展示对象 | 公司产品、教研与技术相关人员 |
+| 展示目的 | 验证 P1/P2 题目结构化、按知识点找题、严格智能组卷及题目卷/答案卷输出的可行性与价值 |
+| 课程边界 | Pearson Edexcel International Advanced Level Mathematics，仅 P1、P2；不混卷 |
+| 10 月展示载体 | 复用现有仓库的 Web 前台与 Web 管理后台，在本机或受控演示环境运行；本期不开发微信小程序 |
+| 展示数据 | 小规模、经教研审核、来源和使用权限明确的样例；覆盖正常题与关键异常题，不承诺年份全覆盖 |
+| Demo 完成定义 | 教研可录入并发布样例大题；演示者可按 P1/P2 的单个 Topic 智能选题、调整顺序，并取得相互对应的题目 PDF 和答案 PDF |
 
----
+## 1. 背景、阶段与判断边界
 
-## 0. 现状映射（先读：哪些已建成，哪些要新建）
+项目继续以 `paper-builder-system` 为主工程。仓库已有 Flask + SQLite、本地持久化、题目 CRUD、真题元数据、知识树、基础抽题、双栏组卷台和打印页。这些是可复用基础，**不等于** P1/P2 真题智能组卷 Demo 已完成：目前缺完整大题多图、多 Topic 审核、严格筛选、真正的两份 PDF 文件；现有样例题也不能代表完整真题库。
 
-本 PRD 沿用合作方提供的模板结构。与已上线的组卷系统对照，**组卷侧大部分 P0 已完成**，差距集中在"真题结构化"一侧。
+本阶段只验证一条可演示的纵向闭环。正式 MVP 仍需更完整的内容覆盖、学生端、账号归属、运营安全、备份与部署验收。对标小程序只用来参考用户路径和交互，不扩大本期考试局、学科或服务范围。
 
-| 模板要求 | 现状 | 结论 |
+原 PDF v1.0 将微信小程序列为第一阶段形态，仓库旧版 PRD 则写 Web 优先；本版明确 **10 月先以 Web 做公司 Demo**。小程序是否进入之后的交付范围，待公司根据 Demo 反馈决定。旧版把自动组卷放在 P1，本版按已确认的产品规则改为 Demo 必须演示。
+
+## 2. 展示对象要看到的核心价值
+
+1. **内容可管理：** 教研把来源明确的 P1/P2 整道大题录入，核对原题号、年份、考季、分值、难度、预计用时和知识点，审核后发布；答案缺失有明确状态。
+2. **找题准确：** 先选 P1 或 P2，再选 Topic；结果显示完整大题、多个知识点标签、原卷来源和答案状态。筛选不跨 Paper。
+3. **智能组卷可信：** 选择考试局 Edexcel、P1/P2、单个 Topic、难度和目标时长后，系统只从符合条件的已发布题目中选题；不足时说明缺口，不静默放宽范围或重复用题。
+4. **人可最后把关：** 生成结果可删除、替换、调整顺序和修改标题，题数、分值、预计时长随之更新。
+5. **输出可核对：** 独立题目 PDF 与答案 PDF 题序一致，保留题图原生题号，并显著标明原卷年份/考季；无 MS 的题在答案 PDF 中显示“暂无评分方案”，不导致生成失败。
+
+公司演示不以“10 秒生成”“题库套数”或 AI 能力作未经实测的承诺。演示数据与真实上线数据明确区分。
+
+## 3. 10 月 Demo 范围
+
+### 3.1 必须完成（D0）
+
+| 能力 | Demo 要求 | 可观察的通过标准 |
 |---|---|---|
-| 手动组卷篮 / 排序 / 删除 / 防重复（PAPER-01~06） | ✅ 已建成（双栏工作区、区内调序、usedCount 预警） | 直接复用 |
-| 自动组卷（分层抽样、难度分布、缺口提示、excludeIds） | ✅ 已建成 | 直接复用 |
-| 题库管理 / 批量操作 / 回收站 / 查重 | ✅ 已建成 | 直接复用 |
-| Topic / Subtopic 知识树 | ⚠️ 已有基础两级树（按科目），需按 Paper 维度重构 | **需改造** |
-| 真题元数据（年份/考季/卷号/QP/MS 文件） | ❌ 无 | **需新建** |
-| 题目/答案图片（question_image / answer_image） | ⚠️ 现为文本+公式渲染；图片字段已有（imagePath），需加 answer_image | **需扩展** |
-| Mark Scheme 1:1 关联与查看 | ❌ 现为文本答案字段，需改为独立 MS 资源 | **需改造** |
-| QP / MS PDF 生成与下载 | ⚠️ 已有打印/Word 导出；需按 7.3/7.4 规则升级为可下载 PDF | **需升级** |
-| 用户收藏 / 我的试卷 | ⚠️ 组卷已有（本地登录态）；收藏缺失 | **需新建** |
-| 微信小程序端 | ❌ 无（第二阶段） | 架构预留 |
-| 管理员独立 CMS | ⚠️ 同站角色区分（admin/teacher），需独立后台入口 | **需改造** |
+| 教研录题与审核 | 按**完整大题**入库；一题可有多张有序题图和多张答案图；教研审核并可校正 Topic、难度、用时 | 后台修改并发布后，前台无需改代码即可看到正确内容；草稿不进入组卷 |
+| 来源信息 | 关联原始真题卷的考试局、P1/P2、年份、考季、原题号、分值；答案可缺失 | 题目卡片和组卷结果显示来源；缺 MS 状态明确 |
+| 知识点 | P1、P2 分开维护 Topic；一题可有多个标签 | 标签在题目卡片/详情直接显示；按一个 Topic 检索能命中含该标签的综合题 |
+| 找题 | P1/P2 → Topic → 题目列表；可查看题图及已有答案 | 页面只展示已发布题目；空结果、加载和失败有明确反馈 |
+| 智能组卷 | Edexcel → P1/P2 → 单个 Topic → Random/Easy/Normal/Hard → 目标时长 | 不跨 Paper/Topic、不重复；题量和时长有可解释的结果；不足时给缺口，不从其他题池补齐 |
+| 编辑试卷 | 生成后删除、替换、调序、修改标题，保存并再次打开 | 顺序及统计保持；替换题仍满足本卷条件 |
+| 双 PDF | 生成并下载独立的 Question Paper 和 Mark Scheme | 两份文件可再次打开；题序、来源、原生题号一致；题图不裁切；缺 MS 有占位 |
+| 演示安全 | 非公开文件不可通过静态路由读取；使用独立的演示数据和账号 | 数据库、上传原件、私有文件的直接 URL 不可访问；演示不依赖默认弱口令 |
 
----
+### 3.2 可展示但不阻塞（D1）
 
-## 1. 项目概述
+- 整卷原始 QP/MS 在线查看，前提是该资源的展示权限已确认。
+- 更多年份/考季筛选、Subtopic 层级、收藏与“我的试卷”用户中心。
+- 简单的生成历史、下载记录和中文/英文展示切换。
+- 一键重生成同条件试卷；演示时应明确是否会保存新卷。
 
-本项目在现有「国际课程组卷系统」（paper-builder-system）基础上，按本 PRD 演进为一款面向 A-Level / IGCSE / AP 国际课程数学学习者的**真题刷题与智能组卷工具**。第一阶段仅聚焦 Pearson Edexcel IAL Mathematics 的 P1、P2，以最小范围验证"结构化真题数据库 + 精准找题 + 组卷下载"的完整产品闭环。
+### 3.3 本期不做
 
-| 项目项 | 定义 |
+微信小程序、CAIE/AQA、P3/P4/FP/S/M/D、其他学科、近 5–8 年全量导入、支付、公开获客、班级考试、成绩报告、学习规划、AI/OCR 自动拆题、自动批改和复杂推荐。现有旧模块保持可运行即可，不为 Demo 扩建或全面迁移。
+
+## 4. 用户路径与页面
+
+**演示路径 A：教研内容准备。** 管理后台创建或选择 Edexcel P1/P2 原始卷 → 上传/关联可用资源 → 按大题录入多张题图和答案图 → 标记多个 Topic、难度、预计分钟数 → 教研审核校正 → 发布。没有 MS 时标记“暂缺”，允许发布。
+
+**原始输入边界（2026-10-01 确认）：** 教研提供的是每个考季的完整 QP PDF 和对应的完整 MS PDF，不在系统外裁题、制作单题图片/JSON/CSV 或手工建立对应目录。系统先保存完整原卷，再提供从 PDF 页面/区域建立完整大题及对应 MS 的人工或半人工工作流；题目边界和 QP/MS 对应必须经教研确认。本 Demo 不做 AI/OCR 自动拆题。
+
+**演示路径 B：知识点找题。** Web 用户页选择 P1 或 P2 → 选择 Topic → 查看题目列表 → 查看题图、所有知识点标签、原题号及年份/考季 → 查看已有答案或“答案暂缺”。综合题可有多个标签，但仍属于其原始 P1 或 P2。
+
+**演示路径 C：智能组卷。** 设置 Edexcel、P1/P2、一个 Topic、难度和目标时长 → 生成候选卷 → 检查题数/分值/时长与来源 → 调序、删除或替换 → 保存 → 分别取得 Question Paper PDF 和 Mark Scheme PDF。演示时至少走一份 P1 卷和一份 P2 卷，不在同卷混合。
+
+首页为三个核心入口服务：**真题/知识点找题、智能组卷、管理后台**。可复用现有 `admin.html`、`js/archive.js`、`js/builder.js`；不为对标小程序的课程、竞赛、留学、资讯栏目制作占位入口。
+
+## 5. 核心业务规则
+
+| ID | 规则 |
 |---|---|
-| 产品形态 | 第一阶段 Web（用户端 + 管理端）；第二阶段微信小程序（用户端） |
-| MVP 课程 | Pearson Edexcel IAL Mathematics |
-| MVP Paper | P1、P2 |
-| 核心资源 | Question Paper、Mark Scheme、单题切片、Topic/Subtopic 标签 |
-| 核心操作 | 找题、查看题目、查看答案、收藏、加入组卷、排序、生成 PDF、下载 |
-| 核心后台能力 | 试卷录入、单题管理、标签管理、答案关联、发布/下架 |
+| BR-01 | 一条 `question` 表示原卷的一道完整大题；(a)/(b) 等小问不独立入库，跨页题按顺序关联多张题图。 |
+| BR-02 | 每题可关联多个经教研审核的 Topic 标签；题目卡片展示全部标签。组卷时“单 Topic”指每道入卷题都必须含所选 Topic 标签。 |
+| BR-03 | 原始 P1 与 P2 资源、目录和生成卷分开；不得因同名 Topic 而跨 Paper 抽题。考试局固定为 Edexcel，但接口仍保留该字段。 |
+| BR-04 | 题目与答案图片直接保留原生题号；生成卷另显示来源年份/考季及题序，不在图片上覆盖或替换原题号。 |
+| BR-05 | 无 MS 的题可以审核、发布、检索及组卷；答案 PDF 对应位置显示缺失提示，不能伪称有官方评分方案。 |
+| BR-06 | 仅审核通过且已发布、资源可用的题可进入公开候选池。题库不足时返回缺口和可用题数，不跨条件补题、不重复。 |
+| BR-07 | 目标时长按教研给出的每题预计分钟数累计；Demo 的默认目标和允许偏差由样例数据一同确定并在界面展示，不以固定题数暗代时长。 |
+| BR-08 | 调整顺序后，两份 PDF 同步使用最新题序；只有文件实际存在并可读取，生成记录才可标记成功。 |
+| BR-09 | 编辑、下架题目不能悄悄改变既有试卷；保存题目来源快照或版本，并明确不可用状态。 |
 
-第一阶段不是建设"完整国际教育平台"，而是先把 P1/P2 真题结构化，并复用已建成的组卷引擎（双栏工作区、智能分层组卷）支持精准找题与组卷下载。
+## 6. 数据与接口调整方向
 
-## 2. 产品定位与目标
+本节是开发契约，**不代表本 PRD 修订已执行数据库迁移**。沿用 Flask、SQLite 和现有 API，按功能渐进扩展。
 
-### 2.1 产品定位
-
-区别于单纯提供整套 PDF 下载的资源网站，本产品将历年真题拆分为可检索单题，并按 Paper、年份、考季、Topic、Subtopic、难度等维度进行结构化管理。
-
-用户核心路径：
-找题 → 做题/查看题目 → 查看 Mark Scheme → 收藏/加入组卷 → 调整顺序 → 生成 Question Paper + Mark Scheme → 下载 PDF
-
-### 2.2 项目目标
-
-| 目标 | 目标说明 | MVP 可验证结果 | 现状 |
-|---|---|---|---|
-| O1：结构化题库 | 将 P1/P2 原始 QP/MS 转化为可检索单题数据库 | 每题可追溯到 Paper、年份、考季、题号、分值、Topic/Subtopic、答案 | ❌ 本期核心工作 |
-| O2：知识点刷题 | 用户可按课程结构定位题目 | 可从 P1/P2 → Topic → Subtopic 进入题目列表，并按年份/难度/考季筛选 | ⚠️ 树已建，需按 Paper 重构 |
-| O3：组卷闭环 | 用户可自定义选题并生成可下载试卷 | 题目可加入组卷篮、排序、删除，并生成 QP/MS PDF | ✅ 组卷已建成；PDF 本期升级 |
-
-## 3. 用户角色与核心场景
-
-| 角色 | 主要任务 | 典型场景 |
+| 概念 | 当前基础 | Demo 调整方向 |
 |---|---|---|
-| 学生 | 按知识点找题、查看答案、收藏、生成练习卷 | "我刚学完 Differentiation，想做 10 道相关历年真题。" |
-| 教师 | 快速挑题、自定义测试卷、生成 QP/MS | "我要给学生出一份 P1 Transformation + Quadratics 的 50 分测试卷。" |
-| 管理员/教研 | 录入试卷、拆题、打标签、关联答案、发布 | "上传 2024 Jan P1 QP/MS，完成单题结构化并发布。" |
+| 原始真题卷 | `exam_papers` | 继续承载 Board/Paper/年/考季、完整 QP/MS PDF 原件、来源、资源状态及展示权限；不与用户生成的 `papers` 混用，原件不可走公开静态 URL |
+| 大题 | `questions` | 关联 `exam_paper_id`，明确原题号、分值、预计分钟数、答案状态、审核状态及审核人 |
+| 多图 | 目前单张题图/答案图路径 | 增加有 `kind` 与 `sort_order` 的题目资源关联；跨页图片顺序可审查 |
+| 多知识点 | `knowledge_nodes` 与单值 `topic_id/subtopic_id` | 增加题目—知识点多对多关系；旧单值字段仅作兼容，不作为唯一筛选依据 |
+| 用户生成卷 | `papers`、`paper_items` | 记录固定 Board/Paper/Topic、难度、目标时长及最终题序/来源快照 |
+| PDF 文件 | `generated_files` 目前只是记录；`js/print.js` 是浏览器打印 | 实际生成两份持久化文件并记录地址、状态、错误和版本；打印页可作预览，不充当生成完成证明 |
 
-MVP 中学生与教师共用前台账号体系（现有 teacher/wangli 账号体系保留，教师可多一个"加入组卷"能力，学生端后续只读+收藏）；管理员使用独立后台入口（现有 admin 角色扩展）。
+现有 `/api/papers/generate` 是可修改的抽题基础，但不能直接宣称满足本版规则。其入参至少需要 `board`、`paper`、`topic_id`、`difficulty`、`target_minutes`；后端必须严格过滤并返回题目 ID、预计分钟数、总分和不足原因。题目检索与替换 API 使用同一套发布状态和 Paper/Topic 约束。字段名称最终以实现和测试确认，避免新增一套与旧 API 并行而语义冲突的接口。
 
-## 4. MVP 范围与边界
+## 7. 演示数据准备
 
-### 4.1 本期范围（P0）
+教研提供或核准 Topic 目录、难度标准、预计时长和样例题来源。Demo 不以“近 5–8 年完整真题库”为准，而以**足够验证规则的一小批可追溯题目**为准：P1、P2 各有至少一个可组卷 Topic，且每个演示 Topic 的候选题足以构成一次短卷；样本中包含多标签题、跨页大题和无 MS 题，并另准备一个题量不足的负例。每题均需人工核对题图/答案配对、原题号、考季、分值及分类。
 
-| 端 | P0 功能范围 |
-|---|---|
-| 用户端（Web） | 登录；P1/P2 切换；Topic/Subtopic 浏览；题目列表（年份/考季/难度筛选）；单题查看；Mark Scheme 查看；收藏；手动加入组卷；组卷篮；排序；删除；生成 QP/MS PDF；下载；整卷真题查看/下载 |
-| 管理后台 | Paper 管理（真题元数据 + QP/MS 上传）；Question 创建/编辑（题目/答案图片）；Topic/Subtopic 管理；题目标签；答案关联；状态发布/下架；批量基础操作 |
+资源必须标明 `official_link / hosted_file / owned_content` 及可展示范围。**可在官网访问不等于可在本系统复制、重新组卷或分发。** 在权限未明确前，使用自有/获准样例进行公司内部演示，并在界面或演示说明中标明“样例数据”；不得将未经许可的真题文件部署到公众可访问环境。
 
-### 4.2 本期明确不做
+## 8. 10 月工作顺序与演示验收
 
-- P3/P4/FP1/S1/M1 等其他 Paper
-- CAIE、AQA、AP、IGCSE（现有 87 题仿真题库保留为"练习题库"板块，不删）
-- 其他学科
-- AI 讲题 / AI 聊天机器人 / 拍照搜题 / 自动批改 / 班级管理 / 家长端 / 社区 / 排行榜 / 直播 / 支付 / 复杂学习规划
-- 微信小程序（第二阶段，本期内仅做架构预留：前后端分离已满足）
-
-## 5. 产品信息架构
-
-### 5.1 用户端导航（Web 第一阶段）
-
-题库（真题） | 知识点刷题 | 组卷台 | 我的
-
-### 5.2 核心导航层级
-
-```
-题库（真题）
-├─ P1/P2 → 年份 → 考季 → QP / MS（在线查看 / 下载）
-知识点刷题
-├─ P1/P2 → Topic → Subtopic → 题目列表 → 单题详情（含 MS 展开）
-组卷台（已建成，保持双栏工作区）
-├─ 试题池（可切"真题/练习"来源）→ 组卷 → 编辑 → 生成 PDF
-我的
-├─ 我的收藏
-├─ 我的试卷
-└─ 下载记录（P1）
-```
-
-### 5.3 现有导航映射
-
-现导航（组卷台/题库/试卷库/总览/考试/审计）保留为"工作台模式"（教师/管理员用），新增"题库模式"页签（学生用）：真题库、知识点刷题、我的。角色默认落页：admin/teacher → 工作台；student → 题库模式。
-
-## 6. 用户端功能需求
-
-### 6.1 首页（题库模式首页）
-
-| ID | 功能 | 需求描述 | 优先级 | 验收标准 |
-|---|---|---|---|---|
-| FE-HOME-01 | 课程入口 | 显示 Pearson Edexcel IAL Mathematics 课程卡片 | P0 | 点击进入 P1/P2 选择页 |
-| FE-HOME-02 | 核心入口 | 显示"真题库 / 知识点刷题 / 智能组卷"三大入口 | P0 | 三入口均可正常导航 |
-| FE-HOME-03 | 最近浏览 | 显示最近一次浏览的 Paper/Topic（无数据则隐藏） | P1 | 再次进入可继续上次位置 |
-
-### 6.2 Paper 选择
-
-| ID | 功能 | 需求描述 | 优先级 | 验收标准 |
-|---|---|---|---|---|
-| FE-PAPER-01 | Paper 切换 | 显示 P1、P2 两个入口 | P0 | 点击后进入对应 Topic 页面 |
-| FE-PAPER-02 | Paper 信息 | 展示 Pure Mathematics 1 / 2 名称 | P0 | 名称与后台配置一致 |
-
-### 6.3 Topic / Subtopic 浏览
-
-| ID | 功能 | 需求描述 | 优先级 | 验收标准 |
-|---|---|---|---|---|
-| FE-TOPIC-01 | Topic 列表 | 按 sort_order 展示当前 Paper 的 Topic | P0 | 顺序与后台一致 |
-| FE-TOPIC-02 | Subtopic 列表 | 点击 Topic 后显示对应 Subtopic | P0 | 支持"全部"选项 |
-| FE-TOPIC-03 | 题量显示 | Topic/Subtopic 可显示题目数量 | P1 | 数量与已发布题目一致 |
-
-### 6.4 题目列表
-
-| ID | 功能 | 需求描述 | 优先级 | 验收标准 |
-|---|---|---|---|---|
-| FE-Q-01 | 题目卡片 | 显示年份、考季、Paper、题号、Subtopic、marks、难度 | P0 | 字段缺失时不影响页面结构 |
-| FE-Q-02 | 筛选 | 支持年份、考季、难度筛选 | P0 | 筛选条件可组合，结果正确 |
-| FE-Q-03 | 分页 | 默认 20 题/页或等效无限滚动 | P0 | 连续加载无重复/遗漏 |
-| FE-Q-04 | 加入组卷 | 列表卡片直接支持"+加入试卷" | P0 | 加入后提示成功且组卷数量更新 |
-| FE-Q-05 | 空状态 | 无符合条件题目时显示明确提示 | P0 | 不出现空白页面 |
-
-### 6.5 单题详情
-
-| ID | 功能 | 需求描述 | 优先级 | 验收标准 |
-|---|---|---|---|---|
-| FE-DETAIL-01 | 题目展示 | 显示题目图片及来源信息 | P0 | 数学公式清晰、图片完整不裁切（文本题沿用 KaTeX 渲染） |
-| FE-DETAIL-02 | 显示答案 | 点击按钮展开/收起 Mark Scheme 图片 | P0 | 展示答案与该题 question_id 一致 |
-| FE-DETAIL-03 | 收藏 | 支持收藏/取消收藏 | P0 | 状态持久化到用户账号 |
-| FE-DETAIL-04 | 加入组卷 | 支持加入当前试卷 | P0 | 同一试卷默认不重复加入同一题（现有 usedCount/防重复逻辑复用） |
-
-### 6.6 整卷（真题）
-
-| ID | 功能 | 需求描述 | 优先级 | 验收标准 |
-|---|---|---|---|---|
-| FE-ARCHIVE-01 | 整卷检索 | 按 P1/P2 → 年份 → 考季浏览 Paper | P0 | 正确返回对应 Paper |
-| FE-ARCHIVE-02 | QP/MS | 显示 Question Paper 与 Mark Scheme | P0 | 均可在线查看/下载（视资源权限） |
-
-### 6.7 我的
-
-| ID | 功能 | 需求描述 | 优先级 | 验收标准 |
-|---|---|---|---|---|
-| FE-ME-01 | 我的收藏 | 展示用户收藏题目 | P0 | 可进入题目详情、可取消收藏 |
-| FE-ME-02 | 我的试卷 | 展示用户创建的组卷 | P0 | 可继续编辑、生成/下载（现有试卷库复用） |
-| FE-ME-03 | 下载记录 | 展示生成文件历史 | P1 | 可重新下载未失效文件 |
-
-## 7. 组卷与 PDF 生成需求
-
-### 7.1 手动组卷（P0）—— 现状：✅ 已建成
-
-| ID | 功能 | 需求描述 | 验收标准 | 现状 |
-|---|---|---|---|---|
-| PAPER-01 | 自动创建试卷 | 首次"加入试卷"且无草稿时自动创建 Untitled Paper | 题目进入组卷篮 | ✅ addToPaper 自动建区 |
-| PAPER-02 | 组卷篮 | 显示已选题目、来源、marks、总题数、总分 | 总分实时更新 | ✅ 实时统计条 |
-| PAPER-03 | 排序 | 支持拖拽调整题序 | 刷新后顺序保持 | ⚠️ 现为 ↑↓ 按钮，本期补拖拽 |
-| PAPER-04 | 删除 | 从当前试卷删除题目 | 总题数/总分更新 | ✅ |
-| PAPER-05 | 修改标题 | 修改试卷标题 | 标题用于 PDF 封面 | ✅ |
-| PAPER-06 | 防重复 | 同一试卷同一题默认一次 | 重复添加提示"已在试卷中" | ✅ |
-
-### 7.2 自动组卷（P1，架构已预留）—— 现状：✅ 后端已建成
-
-输入条件：paper, topics[], subtopics[], difficulty, year_from, year_to, question_count 或 target_marks
-输出：question_ids[] + total_marks
-
-现有智能组卷引擎已实现分层抽样/难度分布/排除/缺口提示；本期补齐 paper/year/session 维度筛选与 target_marks 模式即可。
-
-### 7.3 Question Paper PDF 规则（本期 P0，由现有打印页升级）
-
-- 封面显示自定义标题、课程名称、Paper、Total Marks；时间字段可后续配置。
-- 题目按组卷篮 sort_order 排列。
-- 新试卷重新编号为 Question 1, Question 2...；不依赖原始题号。
-- 保留每题原始 marks。
-- Question Paper 不显示答案。
-- 题目图片自动按页面宽度缩放，禁止裁切公式和题干；文本题沿用 KaTeX 渲染。
-- 分页尽量避免将同一道题切断；无法避免时保证可读性（现有 break-inside 规则保留）。
-
-### 7.4 Mark Scheme PDF 规则（本期 P0）
-
-- MS 中题目顺序必须与 QP 完全一致。
-- 重新编号与 QP 的 Question 1/2/3... 对应。
-- 每题显示其对应 answer_image / Mark Scheme 内容。
-- 生成失败时不得返回半成品 URL，应返回错误状态并允许重试。
-
-实现方式：第一阶段复用浏览器打印管线（现有 print.html，QP=学生卷 / MS=教师卷答案页另起），新增"下载 PDF"按钮（window.print → 另存 PDF 指引 + generated_files 记录）；第二阶段切服务端生成。
-
-## 8. Web 管理后台需求
-
-### 8.1 后台一级菜单
-
-Dashboard | Papers | Questions | Topics | Users（现有组卷台/题库/考试/审计保留为教师工具区）
-
-### 8.2 Paper 管理
-
-| ID | 功能 | 字段/要求 | 优先级 |
+| 顺序 | 工作 | 为什么先做 | 完成判据 |
 |---|---|---|---|
-| CMS-P-01 | 创建/编辑 Paper | Board, Qualification, Subject, Paper, Year, Session, Paper Code, QP URL, MS URL, Status | P0 |
-| CMS-P-02 | 上传 QP/MS | 支持 PDF 文件上传并保存资源地址（现有 /api/upload 扩展 PDF 类型） | P0 |
-| CMS-P-03 | 状态管理 | draft / published / disabled | P0 |
+| 0 | 隔离演示环境、封闭数据库/上传原件的直接访问，确认样例内容权限及教研目录 | 安全与内容边界决定能否演示 | 未授权 URL 无法取得私有文件；样例清单可追溯 |
+| 1 | 完整大题、多图、多标签、无 MS、审核发布 | 先有可信候选题 | 后台修改后前台正确展示；草稿不被检索/组卷 |
+| 2 | P1/P2 知识点检索与严格智能组卷 | 验证核心差异 | 不跨卷、不跨 Topic、不重复；时长与不足反馈可解释 |
+| 3 | 组卷编辑与独立 QP/MS PDF | 给公司看完整输出 | 调序后两份文件顺序、来源、原生题号一致，缺 MS 占位正确 |
+| 4 | 隔离数据回归、演示脚本与故障预案 | 避免现场依赖临时修复 | P1、P2 正例与题量不足负例均可重复演示；异常有清晰提示 |
 
-### 8.3 Question 管理
+**Demo 验收用例：**
 
-| ID | 功能 | 需求描述 | 优先级 | 现状 |
-|---|---|---|---|---|
-| CMS-Q-01 | 创建/编辑题目 | 选择 paper_id，填写题号、子题号、marks、Topic/Subtopic、difficulty | P0 | ⚠️ 字段缺 paper_id/题号/子题号 |
-| CMS-Q-02 | 题目图片 | 上传 question_image | P0 | ✅ 已有（imagePath） |
-| CMS-Q-03 | 答案图片 | 上传 answer_image 并绑定 | P0 | ❌ 需新增 answer_image 字段 |
-| CMS-Q-04 | 排序字段 | 支持 question_order | P0 | ❌ 需新增 |
-| CMS-Q-05 | 发布状态 | draft / published / disabled | P0 | ✅（启用/停用 改名即可） |
-| CMS-Q-06 | 批量操作 | 批量 Topic/Subtopic、批量发布、批量删除 | P0 | ⚠️ 已有批量启停/收藏/删除，补批量打标 |
-| CMS-Q-07 | AI 预处理入口 | 保留未来 OCR/自动标签能力接口 | P2 | 预留 |
+1. 教研发布一题跨页、带两个 Topic 标签的大题；前台题图完整、标签和来源正确，原题号未被覆盖。
+2. 选择 P1 的一个 Topic 生成短卷，全部题都属于 P1 且含所选标签；删除/替换/调序后统计和保存结果一致。
+3. 选择 P2 重复验证；P1 与 P2 不混合。
+4. 指定无足够候选题的条件，系统说明不足，既不重复题也不偷偷跨 Topic。
+5. 对含无 MS 题的卷生成两份可下载 PDF；答案卷有缺失占位，其他答案与题目逐题对应。
+6. 刷新或重新进入已保存试卷，题序与两份输出仍可核对。
 
-### 8.4 Topic / Subtopic 管理
+若现场只展示静态截图、浏览器“另存为 PDF”操作或模拟的成功记录，而未通过上述用例，应称为**交互原型**，不能称为智能组卷 Demo 已验收。
 
-| ID | 功能 | 需求描述 | 优先级 |
-|---|---|---|---|
-| CMS-T-01 | Topic CRUD | 按 Paper 新增/编辑/排序/停用 Topic | P0 |
-| CMS-T-02 | Subtopic CRUD | 在 Topic 下新增/编辑/排序/停用 Subtopic | P0 |
-| CMS-T-03 | 顺序控制 | sort_order 控制前台显示顺序 | P0 |
+## 9. 风险、阶段边界与后续决定
 
-现有知识树管理（两级、按科目）扩展 paper_scope 字段即可。
+- **技术安全：** 现有 Flask 静态路由曾在本机返回数据库文件；任何局域网/公网演示之前必须修复并验证。默认种子账号和密码不用于对外环境。
+- **内容与版权：** Pearson 试卷和 Mark Scheme 的展示、托管、拆题及组合输出须按具体授权范围判断；这是产品发布风险，不是文件存储形式可以解决的问题。
+- **数据质量：** 教研审核工时、错标、答案错配、跨页裁切直接影响 Demo 可信度；先保证少量样本正确，再考虑批量导入。
+- **时长规则：** 如果尚无逐题预计用时，必须先由教研为演示样本赋值；不能把“30 分钟”仅写在标题上。
+- **阶段边界：** 10 月公司演示通过，不自动等于对学生开放、完成小程序、支持全量年份或具备正式商用条件。后续投入按公司反馈和内容权限再决定。
 
-### 8.5 录题标准流程
-
-创建 Paper → 上传 QP → 上传 MS → 拆题 → 创建 Question → 上传 Question Image → 上传 Answer Image → 选择 Topic/Subtopic → Difficulty → Marks → 保存 → 发布
-
-**关键验收：管理员新增/修改/发布题目后，不需要程序员改代码，前台即可按配置展示。**（现有系统已满足该原则）
-
-## 9. 数据模型
-
-实际数据库沿用现有 SQLite，按下列语义扩展（现有表迁移）。
-
-### 9.1 papers（现有 papers 表扩展真题元数据）
-
-| 字段 | 类型建议 | 说明 | 现状 |
-|---|---|---|---|
-| id | PK | Paper 主键 | ✅ |
-| exam_board | varchar | Edexcel | ❌ 新增 |
-| qualification | varchar | IAL | ❌ 新增 |
-| subject | varchar | Mathematics | ⚠️ 现为 subject_line 文本 |
-| paper_name | varchar | P1 / P2 | ❌ 新增 |
-| paper_code | varchar | 如 WMA11/01 | ❌ 新增 |
-| year | int | 年份 | ❌ 新增 |
-| session | varchar | January / June / October 等 | ❌ 新增 |
-| qp_url | text | QP 文件地址 | ❌ 新增 |
-| ms_url | text | MS 文件地址 | ❌ 新增 |
-| resource_type | enum | official_link / hosted_file / owned_content | ❌ 新增 |
-| status | enum | draft / published / disabled | ✅（草稿/定稿） |
-| created_at / updated_at | datetime | 时间戳 | ✅ |
-
-### 9.2 questions（现有 questions 表扩展）
-
-| 字段 | 类型建议 | 说明 | 现状 |
-|---|---|---|---|
-| id | PK | Question 主键 | ✅ |
-| paper_id | FK | 关联 papers.id | ❌ 新增 |
-| question_number | varchar/int | 原卷大题号 | ❌ 新增 |
-| sub_question | varchar nullable | 如 a / b / a-i | ❌ 新增 |
-| question_order | int | 原卷/后台排序 | ❌ 新增 |
-| marks | int | 分值 | ✅（score） |
-| topic_id | FK | Topic | ⚠️ 现为 tags 文本，本期加 FK |
-| subtopic_id | FK nullable | Subtopic | ❌ 新增 |
-| difficulty | tinyint | 1 Easy / 2 Normal / 3 Hard | ⚠️ 现为 1–5，做映射（1-2→1，3→2，4-5→3） |
-| question_image_url | text | 题目图片 | ✅（imagePath） |
-| answer_image_url | text | 答案图片 | ❌ 新增 |
-| status | enum | draft / published / disabled | ✅ |
-| created_at / updated_at | datetime | 时间戳 | ✅ |
-
-### 9.3 topics / subtopics
-
-| 表 | 核心字段 | 现状 |
-|---|---|---|
-| topics | id, paper_scope(P1/P2), name, sort_order, status | ⚠️ 现有 knowledge_nodes 加 paper_scope + sort_order |
-| subtopics | id, topic_id, name, sort_order, status | ✅ 两级结构一致 |
-
-### 9.4 用户相关
-
-| 表 | 核心字段 | 约束/说明 | 现状 |
-|---|---|---|---|
-| users | id, account, password_hash, role, name | 账号唯一 | ✅ |
-| favorites | id, user_id, question_id, created_at | user_id + question_id 唯一 | ❌ 新建 |
-| user_papers | id, user_id, title, total_marks, created_at, updated_at | 用户自定义试卷 | ✅（papers，需加 user_id 归属） |
-| user_paper_questions | id, user_paper_id, question_id, sort_order | 同一 paper/question 默认唯一 | ✅（paper_items） |
-| generated_files | id, user_paper_id, question_pdf_url, mark_scheme_pdf_url, status, created_at | 记录 PDF 生成结果 | ❌ 新建 |
-
-## 10. API 与后端能力要求
-
-沿用现有 REST 风格（Flask），在现有接口上扩展；下表仅列**新增/变更**项。
-
-| 模块 | 接口/能力 | 关键参数 | 现状 |
-|---|---|---|---|
-| Papers（真题） | GET /papers；GET /papers/:id | paper/year/session/status | ❌ 新增（现有 /api/papers 为组卷卷，路径区分 /api/exam-papers） |
-| Topics | GET /papers/:paper/topics | paper=P1/P2 | ❌ 新增（扩展现有 /api/knowledge） |
-| Questions | GET /questions; GET /questions/:id | paper/topic/subtopic/year/session/difficulty/page | ⚠️ 现有 /api/questions 加筛选维度 + page |
-| Favorites | GET/POST/DELETE /favorites | question_id | ❌ 新增 |
-| User Papers | GET/POST/PATCH/DELETE /user-papers | title, user_id | ✅（现有组卷卷加归属） |
-| Paper Questions | POST/DELETE /user-papers/:id/questions；PATCH order | question_id, sort_order | ✅ |
-| PDF | POST /user-papers/:id/generate | 返回 QP/MS 生成状态与 URL | ❌ 新增（第一阶段由前端打印管线承担） |
-| Auto Generator | POST /paper-generator | 筛选条件 + question_count/target_marks | ✅（/api/papers/generate 补维度） |
-
-## 11. 业务规则与异常处理
-
-| 规则 ID | 规则 | 现状 |
-|---|---|---|
-| BR-01 | 只有 status=published 的 Paper/Question 可在用户端正常检索 | ✅ 同构（启用/停用），加 published 命名 |
-| BR-02 | 同一用户试卷中默认不允许重复加入同一 question_id | ✅ 已实现 |
-| BR-03 | Mark Scheme 必须与 Question 1:1 关联；无答案的题目不得标记"可生成完整 MS" | ⚠️ 需在数据层强制（answer_image 非空才可生成 MS） |
-| BR-04 | 删除/下架题目不能导致历史 user_paper 崩溃 | ✅ 已实现（软删除 + 引用清理提示） |
-| BR-05 | 自动组卷资源不足时不允许重复抽题，返回"符合条件题目不足" | ✅ 已实现（shortage） |
-| BR-06 | PDF 生成过程需要状态：pending / processing / success / failed | ❌ 新建 generated_files 状态机 |
-| BR-07 | 所有异步页面必须处理 Loading / Success / Error / Empty 四种状态 | ⚠️ 部分页面有，统一排查 |
-| BR-08 | resource_type 区分官方链接、自有托管文件、自有内容，便于版权控制 | ❌ 新增 |
-
-## 12. 非功能需求
-
-| 类别 | 要求 | 现状 |
-|---|---|---|
-| 性能 | 题目列表接口 2 秒内返回；20 条/页或无限滚动 | ⚠️ 需加 page 参数与索引 |
-| 文件存储 | QP、MS、题目图、答案图、生成 PDF 使用对象存储；推荐 CDN | ⚠️ 第一阶段本地 backend/uploads，架构预留 |
-| 图片质量 | 公式清晰；可转 WebP/JPG，不得因压缩影响公式辨认 | ✅ 原图上传 |
-| 权限 | 管理员后台独立认证；普通用户不得调用后台写接口 | ✅ require_role 已实现 |
-| 安全 | 上传、编辑、删除、发布等管理操作必须管理员权限校验 | ✅ |
-| 可维护性 | Topic/Subtopic、Paper 名称、排序、状态必须后台可配置，不写死前端 | ✅ |
-| 日志 | 记录 PDF 生成失败、上传失败、关键管理员操作 | ✅ audit_log |
-| 版权 | 资源模型支持链接型/托管型/自有内容型；上线资源按授权策略配置 | ❌ resource_type 新增 |
-
-## 13. 开发优先级与迭代计划
-
-### 13.1 功能优先级
-
-| 优先级 | 范围 | 现状 |
-|---|---|---|
-| P0 | 数据库扩展、CMS、P1/P2 真题库、Topic/Subtopic（按卷）、题目浏览、答案（MS）浏览、收藏、手动组卷、排序、QP/MS PDF 生成与下载 | 组卷侧 ✅；真题侧 ❌ |
-| P1 | 自动组卷维度补齐（paper/year/session/target_marks）、关键词搜索、下载记录、拖拽排序 | 自动组卷 ✅；其余 ❌ |
-| P2 | 错题本、学习数据/正确率、AI 标签、AI 讲题、微信小程序、更多考试局/科目 | 预留 |
-
-### 13.2 推荐 Sprint（含已完成项）
-
-| Sprint | 开发内容 | 完成标志 | 状态 |
-|---|---|---|---|
-| Sprint 0（已完成） | 组卷引擎 + 题库 CMS 基础 + 在线答题 + 统计 | 双栏组卷工作区/智能组卷/批量/回收站/知识树/87 题 | ✅ 已上线 |
-| Sprint 1 | 数据库扩展 + Paper 真题元数据 | papers/questions 新字段 + 迁移脚本可用 | 本期 |
-| Sprint 2 | 文件与录题能力 | QP/MS PDF 上传、answer_image、发布流程 | 本期 |
-| Sprint 3 | 知识点刷题页 | P1/P2 → Topic/Subtopic → 列表 → 详情 → MS 跑通 | 本期 |
-| Sprint 4 | 用户能力 | favorites、我的收藏、我的试卷归属 | 本期 |
-| Sprint 5 | 组卷系统对接 | 真题源接入工作区试题池、防重复、总分 | ✅ 大部分已完成 |
-| Sprint 6 | PDF 生成与下载 | QP + MS 按规则生成、generated_files 记录 | 本期 |
-
-## 14. MVP 验收标准
-
-| 验收 Case | 操作路径 | 通过标准 |
-|---|---|---|
-| AC-01 找题 | 题库模式 → P1 → Differentiation → 题目列表 | 返回该知识点已发布题目；筛选结果正确 |
-| AC-02 看答案 | 打开单题 → 显示答案 | 展示的 Mark Scheme 与当前 question_id 正确对应 |
-| AC-03 收藏 | 题目详情 → 收藏 → 我的收藏 | 刷新/重新登录后状态仍正确 |
-| AC-04 组卷 | 选择多题 → 加入组卷 → 调整顺序 → 删除一题 | 顺序、题数、总分实时正确（现有能力回归） |
-| AC-05 QP PDF | 点击生成 Question Paper | 题目顺序、重新编号、marks、图片/公式完整性正确 |
-| AC-06 MS PDF | 生成 Mark Scheme | 答案顺序与 QP 完全一致 |
-| AC-07 管理端发布 | 新增 Paper/Question → 打标签 → 发布 | 无需改代码即可在前台检索 |
-| AC-08 异常态 | 无题/接口失败/PDF 失败 | 有明确 Empty/Error/Retry 状态，不出现白屏 |
-
-**MVP 完成定义：管理员能独立录题；用户能按知识点找到真题；用户能把题目组成试卷并生成 Question Paper + Mark Scheme PDF。三者同时满足才算完成。**
-
-## 15. 第一阶段数据交付要求
-
-第一阶段仅录入 Pearson Edexcel IAL Mathematics P1、P2。建议先完成近 5–8 年数据，待产品链路验证稳定后再逐步补齐近 20 年。
-
-```
-Pearson Edexcel IAL Mathematics
-├─ P1
-│   └─ Paper → Topic → Subtopic → Question → Answer
-└─ P2
-    └─ Paper → Topic → Subtopic → Question → Answer
-```
-
-| 数据项 | 最低要求 |
-|---|---|
-| Paper 元数据 | year, session, paper_code, QP, MS, status |
-| Question | 题号/子题号、marks、question_image、answer_image |
-| 标签 | Topic、Subtopic、difficulty |
-| 数据质量 | 题目与答案一一匹配；无重复；图片清晰；已发布题目可追溯来源 |
-
-Topic 建议初始集（P1/P2 通用，按 Edexcel 规范）：Quadratics / Inequalities / Simultaneous Equations / Graphs & Transformations / Straight Lines / Circles / Algebraic Expressions / Differentiation / Integration / Trigonometry（P2）/ Exponentials & Logarithms（P2）。
-
-## 16. 后续预留能力
-
-- 自动组卷：按题量/总分、年份、难度、Topic/Subtopic 随机抽题（引擎已具备，补维度）。
-- AI/OCR 录题：自动识别题号、marks、切题、Topic/Subtopic、Mark Scheme 匹配，人工审核后发布（CMS-Q-07 接口预留）。
-- 错题本与做题记录（现有在线答题 exam_answers 可扩展）。
-- 知识点正确率与学习数据（现有统计报告可扩展到学生维度）。
-- P3/P4/FP1/S1/M1 等 Paper 扩展。
-- CAIE / AP / IGCSE 等考试体系扩展（现有 87 题练习库即多体系，迁入"练习题库"板块）。
-- 微信小程序端（第二阶段；前后端分离架构已满足，REST 直接复用）。
-- 课程/学习规划/付费服务转化入口。
-
----
-
-## 附：与本仓库现有代码的关系
-
-- 本 PRD 的 Sprint 5（组卷系统）大部分已在 paper-builder-system 实现：双栏组卷工作区（js/builder.js）、智能分层组卷（backend /api/papers/generate）、试卷管理、在线答题、统计报告。
-- Sprint 1–4、6 为本期新增开发，涉及数据库迁移（papers/questions 新列）、新增 favorites / generated_files / exam-papers 路由、题库模式前端页（knowledge.html / archive.html / me.html 或单页内页签）。
-- 合作开发约定：改动 js/css 后升级 HTML 内版本号；后端接口变更需同步本 PRD 第 10 节；每日推送 main。
+演示前需要共同确认的只有三项：**展示环境与观众范围**（本机投屏、内网还是联网）；**样例题的来源与展示许可**；**目标时长的计算及允许误差**。这些决定不阻止先开发可独立完成的样例数据和核心规则。
