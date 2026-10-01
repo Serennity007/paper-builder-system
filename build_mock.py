@@ -141,6 +141,7 @@ for q in questions:
 questions.sort(key=lambda x: (-(x.get("examPaperId") or 0), x.get("questionOrder", 0), x["id"]))
 
 payload = {
+    "questionBankReset": seed.get("questionBankReset", ""),
     "credentials": [{"account": c["account"], "password": c["password"], "name": c["name"],
                      "title": c.get("title", ""), "role": c["role"]} for c in seed["credentials"]],
     "subjects": seed["subjects"],

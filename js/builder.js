@@ -834,12 +834,18 @@
   function migrateCart() {
     try {
       var cart = JSON.parse(sessionStorage.getItem('zhxx_zj_cart_v1') || '[]');
-      var mathCart = cart.filter(function (q) { return ZJ.isMathSubject(q.subject); });
-      if (mathCart.length) {
+      if (!cart.length) { return; }
+      Data.questions({ limit: 1000 }).then(function (available) {
+        var mathCart = cart.map(function (old) {
+          return available.find(function (q) { return q.id === old.id && ZJ.isMathSubject(q.subject); });
+        }).filter(Boolean);
+        if (!mathCart.length) { return; }
         mathCart.forEach(function (q) { addToPaper(q); });
-        sessionStorage.setItem('zhxx_zj_cart_v1', JSON.stringify(cart.filter(function (q) { return !ZJ.isMathSubject(q.subject); })));
-        ZJ.toast('已把组卷篮中的 ' + mathCart.length + ' 道数学题并入当前试卷');
-      }
+        sessionStorage.setItem('zhxx_zj_cart_v1', JSON.stringify(cart.filter(function (q) {
+          return !mathCart.some(function (current) { return current.id === q.id; });
+        })));
+        ZJ.toast('已把组卷篮中的 ' + mathCart.length + ' 道可用数学题并入当前试卷');
+      }).catch(function () { /* Leave the old cart intact when the bank is unavailable. */ });
     } catch (e) { /* 忽略 */ }
   }
 

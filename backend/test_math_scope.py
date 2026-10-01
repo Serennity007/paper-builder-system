@@ -13,6 +13,15 @@ class MathScopeTests(unittest.TestCase):
         self.client = self.fixture.client
         self.auth = self.fixture.auth
         self.module.seed_if_empty()
+        # Tests create their own disposable data; production seed stays empty.
+        conn = sqlite3.connect(self.module.DB_PATH)
+        with conn:
+            for subject in ("A-Level 数学", "AP 微积分", "雅思阅读"):
+                conn.execute("INSERT INTO questions(subject,qtype,stem,options,answer,created_at,updated_at) VALUES(?,?,?,?,?,?,?)",
+                             (subject, "单选题", "Disposable fixture", '["1","2"]', "A", "now", "now"))
+            conn.execute("INSERT INTO paper_items(paper_id,question_id,position) VALUES(1,1,0)")
+            conn.execute("INSERT INTO paper_items(paper_id,question_id,position) VALUES(2,3,0)")
+        conn.close()
 
     def tearDown(self):
         self.fixture.tearDown()

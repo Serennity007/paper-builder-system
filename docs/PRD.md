@@ -32,7 +32,7 @@
 
 ## 3. 10 月 Demo 范围
 
-**展示目录补充（2026-10-01）：** 界面仅保留 A-Level 数学和 AP 数学内容。A-Level 目录按 Pearson Edexcel、Cambridge International（CAIE）、AQA 三个考试局展示；当前真实原卷流程仍只启用 Edexcel IAL P1/P2，CAIE/AQA 标为待接入。AP 保留已有微积分练习，不将旧题未经教研确认归入 AB/BC。此次整理仅收敛界面与数据视图，历史非数学数据保留，不扩大本期真题导入或后续 Phase 的验收范围。
+**展示目录补充（2026-10-01）：** 界面仅保留 A-Level 数学和 AP 数学内容。A-Level 目录按 Pearson Edexcel、Cambridge International（CAIE）、AQA 三个考试局展示；当前真实原卷流程仍只启用 Edexcel IAL P1/P2，CAIE/AQA 标为待接入。AP 保留微积分课程入口。教研已确认清空全部现有题目，等待真实完整 QP/MS PDF；历史本地题目采用可恢复删除，种子题目移除。此调整不扩大本期真题导入或后续 Phase 的验收范围。
 
 ### 3.1 必须完成（D0）
 

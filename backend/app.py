@@ -332,7 +332,9 @@ def ensure_schema():
 def seed_if_empty():
     conn = sqlite3.connect(DB_PATH)
     c = conn.cursor()
-    if c.execute("SELECT COUNT(*) FROM questions").fetchone()[0] > 0:
+    # An established installation may intentionally have an empty question bank.
+    if (c.execute("SELECT COUNT(*) FROM users").fetchone()[0] > 0
+            or c.execute("SELECT COUNT(*) FROM questions").fetchone()[0] > 0):
         conn.close()
         return
     with open(SEED_PATH, "r", encoding="utf-8") as f:

@@ -378,6 +378,13 @@
       db.nextExamId = db.exams.length + 1;
       ssSet(DEMO_DB_KEY, db);
     }
+    if (window.ZJ_MOCK.questionBankReset && db.questionBankReset !== window.ZJ_MOCK.questionBankReset) {
+      // Recoverable, one-time deletion of old questions; related records are retained.
+      var deletedAt = new Date().toISOString().slice(0, 19);
+      db.questions.forEach(function (q) { q.deletedAt = q.deletedAt || deletedAt; });
+      db.questionBankReset = window.ZJ_MOCK.questionBankReset;
+      ssSet(DEMO_DB_KEY, db);
+    }
     return db;
   }
   function demoSave(db) { ssSet(DEMO_DB_KEY, db); }
