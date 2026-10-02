@@ -1,171 +1,279 @@
-# 国际课程题库与智能组卷平台 · 项目交接文档（详细版）
+# 国际课程题库与智能组卷平台 · 交接文档（详细版）
 
-> 交接日期：2026-09-30（覆盖至仓库提交 c4533ea）
-> 原负责人：Serennity007　|　接收方：JennyBrian231（协作者，write 权限，已于 2026-09-29 接受 demo 仓邀请）
+> 交接日期：2026-10-01　|　原负责人：Serennity007（金老师）　|　接收方：JennyBrian231（协作者，write 权限）
 > 源码仓库：https://github.com/Serennity007/paper-builder-system（公开 · 完整源码 + 全部文档）
 > 在线演示：https://serennity007.github.io/paper-builder-demo/（公开仓 paper-builder-demo · 纯静态演示模式）
-> 部署套件：本仓库已含 Render / Docker 部署配置（见 §8，协作者贡献）
+> 本地目录：`C:\Users\ztl\Desktop\学生进度追踪系统-交付集合\06-组卷系统\`
+> 当前版本：前端资源 `v=20261001d` · 仓库提交至 `cc08932` 之后的最新版
+> **当前进度一句话**：PRD v1.0 的 **P0 + P1 全部完成**（Sprint 0–6），MVP 完成定义三要素齐备——管理员能独立录题、用户能按知识点找到真题、能组卷并生成 Question Paper + Mark Scheme。**尚未开始**的是 P2（错题本 / 学习数据 / 小程序 / AI 录题 / 更多考试局）与生产化改造，明细见第 7 节。
 
 ---
 
-## 1. 项目背景与建设历程
+## 一、项目背景与建设历程
 
-本项目为成都智慧象留学（国际课程教培）内部教研工具，面向 IELTS / TOEFL / A-Level / AP 国际课程场景。MVP 聚焦 **Pearson Edexcel IAL Mathematics P1 / P2**，验证「真题结构化 → 知识点找题 → 选题组卷 → QP/MS 下载」闭环（需求见 `docs/PRD.md`）。
+本项目为成都智慧象留学（国际课程教培）内部教研工具，面向 IELTS / TOEFL / A-Level / AP 国际课程场景。MVP 聚焦 **Pearson Edexcel IAL Mathematics P1 / P2**，验证「真题结构化 → 知识点找题 → 选题组卷 → QP/MS 下载」闭环（需求全文见 `docs/PRD.md`）。
 
-建设历程（按仓库提交顺序）：
+建设历程（按仓库提交时间顺序，共 8 个阶段）：
 
-| 阶段 | 内容 | 提交 |
+| 阶段 | 内容 | 仓库提交 |
 |---|---|---|
-| 初版交付 | 组卷核心 + 题库 + 组卷工作区 + 在线答题 + 统计报告 + 全部文档（87 题种子） | `0d8ac48` |
-| 规划 | 按 PRD 模板完成 16 章需求文档与差距分析 | `715cb79` |
-| Sprint 1–4、6 | 真题结构化（exam_papers/知识树按卷/收藏/分页/PDF 记录） | `4b3a91f` |
-| 视觉 v1 | 去 AI 味美工（圆角/字距/密度/扁平悬浮/表情清理） | `f6eb8e3` |
-| 操作手册 | 使用者操作手册（教师/学生分篇 + FAQ） | `09e291f` |
-| 交接 | 交接文档初版 | `8b7a99f` |
-| **协作者接手后** | **邮箱验证码登录 + SMTP 通道 + Render/HF 部署套件 + 纸阅视觉 v2** | `40beee5` |
-| **协作者接手后** | **LXGW 文楷排印层 + 登录页去模板化 + 印章式状态章 + 动效层 micro.js** | `c4533ea`（最新） |
+| ① 初版交付 | 组卷核心 + 题库 + 双栏组卷工作区 + 在线答题 + 统计报告 + 全套文档（87 题种子） | `0d8ac48` |
+| ② 产品规划 | 按 PRD 模板完成 16 章需求文档与差距分析（标明已建成/需新建） | `715cb79` |
+| ③ Sprint 1–4、6 | 真题结构化：真题卷元数据、按卷知识树、收藏、分页、PDF 生成记录 | `4b3a91f` |
+| ④ 视觉 v1 | 去 AI 味美工：圆角/字距/密度收紧、扁平悬浮、表情空态清理 | `f6eb8e3` |
+| ⑤ 操作手册 | 使用者操作手册（教师/学生分篇 + FAQ） | `09e291f` |
+| ⑥ 交接初版 | 交接文档第一版 | `8b7a99f` |
+| ⑦ 协作者接手 | **邮箱验证码登录（含 SMTP 通道）+ Render/HF/Docker 部署套件 + 纸阅视觉 v2** | `40beee5` |
+| ⑧ 协作者接手 | **LXGW 文楷排印层 + 登录页去模板化（字标行/书脊/手绘金线）+ 印章式状态章 + 动效层 micro.js** | `c4533ea`（最新） |
 
-> 注意：`c4533ea` 起前端版本号序列为 `v=20261001x`，样式基准已从「藏蓝+香槟金」演进出**文楷排印与印章元素**（`vendor/lxgw/`），视觉规范以当前 `css/style.css` 为准。
+> ⑦⑧ 两轮为协作者 JennyBrian231 完成——前端版本号已演进到 `v=20261001d`，视觉体系在原「藏蓝+香槟金」基础上叠加了 LXGW 文楷排印与印章元素，**当前视觉基准以最新 `css/style.css` 为准**。
 
-## 2. 系统概述与产品形态
+## 二、做了什么——交付物与功能明细（全部已完成 ✅）
 
-- **用户**：教师（组卷/考试/成绩）、学生（刷题/在线答题/收藏）、管理员（录题/发布/管理）
-- **形态**：第一阶段 Web（用户端与管理端同站分角色）；第二阶段微信小程序（REST 架构已预留）
-- **技术栈**：Flask + SQLite（后端，单文件 `backend/app.py`）+ 原生 JS（前端，无框架无构建）
-- **双运行模式**：服务端模式（REST + SQLite 持久化）与纯静态演示模式（sessionStorage，关页重置）——前端零感知，页面只调 `ZJ_Data.*`
+### 2.1 组卷工作台（核心，登录默认页）
 
-## 3. 系统架构
+双栏工作区：左侧试题池筛选挑题，右侧试卷实体实时成型。
 
-### 3.1 后端（backend/app.py，约 2900 行，63 个路由）
+- **试题池**：关键词搜索（题干/材料/知识点/来源）+ 科目/题型/难度筛选；每题显示题型、难度、分值、音频/配图/私有锁标记；**用卷次数 ≥3 次标红**（防重复使用）；点 + 入卷（按钮变灰防重复），点题干弹**题目全貌**（材料/选项/答案/解析/公式渲染）
+- **试卷实体**：题目按题型**自动归入大题**；大题可改名（改名后新加题固定进入该大题）、整区上移/下移/删除；每题**拖拽换位**（跨大题拖动自动归入目标大题，金色虚线落点提示）、分值就地改、**换题弹窗**（同科目同题型候选按难度就近排序，点选替换且保留分值）
+- **实时统计**：题数 · 总分 · 时长（手动填或按题自动汇总）· **难度构成条**（基础/强化/冲刺三色比例）
+- **快速组卷**：选科目 + 题数 → 一键按题库题型分布自动配卷、分值凑满 100 分、自动命名
+- **精确生成**：逐题型设数量×分值 + 难度三层分布（基础 1–2 / 强化 3 / 冲刺 4–5 按比例分层抽样）+ 知识点过滤 + 排除已用题（**平行卷**）；抽不满与分布偏离**如实提示**
+- **组卷蓝图**：整套配置存档命名、一键载入生成；也可**按当前试卷反推存蓝图**
+- 顶部工具条：试卷名 / 科目行 / 时长 / **A-B 卷标记** / 草稿-定稿状态；「保存试卷」与「保存并打印」（后者自动写 QP/MS 生成记录）
 
-| 模块 | 代表路由 | 说明 |
+### 2.2 题库管理
+
+- **7 种题型**：单选 / 多选 / 判断 / 填空 / 简答 / 写作 / 口语 × 难度 1–5
+- **听力音频**：mp3/wav/m4a ≤20MB，在线答题页带播放器；**题目配图**：png/jpg/gif/webp ≤5MB
+- **数学公式**：`$...$` 包裹，KaTeX 离线渲染（题库/组卷/答题/打印全链路）
+- **知识点大纲**：两级树、按科目维护、录题点选、组卷按点过滤
+- **共享 / 私有**：私有题他人不可见不可改（403），admin 不受限
+- **批量操作**：启用/停用/收藏/取消收藏/删除（浮条一键执行）
+- **回收站**：删除 = 软删除可恢复；彻底删除/清空需二次确认
+- **相似度查重**：录题实时提示（归一化 + 序列相似 ≥82%）
+- **Excel**：模板下载 → 批量导入 → 题库导出
+- 筛选：科目/题型/难度/状态/收藏/关键词；**分页**（20 条/页）
+
+### 2.3 真题库（历年真题管理）
+
+- **真题卷元数据**：考试局（Edexcel）/ qualification（IAL）/ Paper（P1、P2）/ 卷号（WMA11/01）/ 年份 / 考季 / QP 与 MS 的 PDF 上传 / 资源类型（链接型/托管型/自有内容）/ 三态（draft / published / disabled）
+- **按卷知识树**：P1 七章、P2 六章（Edexcel 规范章节）+ 子知识点，录题时挂接 topic_id/subtopic_id
+- 学生端只见 published；删除真题卷时题目脱离关联但题目本身保留
+
+### 2.4 知识点刷题（学生/教师共用）
+
+- P1/P2 切换 → Topic 药丸（含题量，父级计数含子级）→ 题目列表（年份/考季/难度筛选 + **关键词搜索**，搜索时自动放宽到全库并标注「真题/练习」）→ 点卡片开**题目详情**（公式渲染 + **Mark Scheme 展开/收起**，有 answer_image 时优先显示图片）→ ♡ 收藏
+- 「+ 试卷」按钮直接把题送入组卷台当前试卷
+
+### 2.5 在线答题（学生免登录）
+
+- 入口在登录页下方；输入 **6 位答题码 + 姓名**（自动匹配考生名单）
+- 逐题作答：选择题点选、判断题对/错、主观题文本；听力题音频播放器；公式渲染
+- **交卷自动判分**：单选/判断全对满分；**多选全对满分、漏选半分、错选 0 分**；主观题存作答原文进教师批阅队列
+- 交卷即显示客观题得分；重复交卷整份覆盖；考试完结后入口关闭
+
+### 2.6 考试与成绩
+
+- **创建考试**：关联试卷 + 花名册勾选 + 「姓名，班级」批量粘贴（自动去重入花名册）+ 可开启在线作答生成答题码
+- **按题录分**：考生侧栏切换；客观题 ✓/✗ 按标准答案速判；学生在线作答原文对照批阅；**答题卡照片**上传挂考生名下；超满分自动截断；合计实时显示
+- **统计报告**：平均/最高/最低/中位数/及格率、分数段分布、成绩排名（🥇🥈🥉）、每题得分率（<50% 红色预警）、**薄弱知识点榜**、讲评建议；**成绩单 Excel 导出**（名次/每题得分/统计摘要双 sheet）
+- 考试完结后在线入口关闭；删除考试同时删成绩
+
+### 2.7 打印与导出
+
+- 三版本：**学生卷**（无答案）/ **教师卷**（文末另起页附答案解析）/ **答题卡**（客观题涂卡气泡、判断题对错气泡、填空作答行、简答/写作作答框）
+- **密封线**开关（红色装订线竖排字，设置记忆）；卷头含机构名/卷名/科目行/时长/总分/姓名班级得分栏（答题卡为考号栏）
+- 按题型自动分大题并注记分值；重新编号 Question 1/2/3…；图片与公式随卷渲染，听力题印提示
+- **导出 Word（.doc）** 可用 WPS/Word 继续编辑；打印走浏览器「另存为 PDF」
+
+### 2.8 账号、安全与数据
+
+- 账号密码登录 + **邮箱验证码登录**（开发模式验证码回显，生产走 SMTP 环境变量）——协作者实现
+- 角色：admin（教学总监，全权限）/ teacher（教师）；录题/组卷/考试/管理接口均有权限校验
+- **审计日志**：登录、题库增删改、批量、组卷、导入导出、考试、备份恢复全程留痕，可按动作筛选
+- **备份/恢复**：全库 JSON 一键导出/恢复（账号不动）；软删除回收站防误删
+
+### 2.9 协作者贡献明细（JennyBrian231，提交 40beee5 与 c4533ea）
+
+- **邮箱验证码登录**：POST /api/auth/email-code、/api/auth/email-login 两接口；开发模式验证码回显、SMTP 环境变量通道、60 秒发码限频、旧码重放拦截、审计留痕；配套冒烟 smoke_email.py
+- **部署套件**：DEPLOY.md（Render 免费部署指南）、render.yaml、Dockerfile、backend/wsgi.py（gunicorn 生产入口）
+- **排印与视觉**：LXGW 文楷屏显字体离线内置（vendor/lxgw/）、登录页去模板化（字标行/书脊/手绘金线）、印章式状态章
+- **动效层**：js/micro.js（进场编排/数字滚动/分布条生长/按钮涟漪/页签过渡；尊重 prefers-reduced-motion）
+
+### 2.10 种子数据（开箱即用）
+
+- **87 道原创题**：34 道市面主流考试风格仿真题（剑桥雅思判断/匹配标题/摘要填空、听力表格填空、托福词汇/EXCEPT/推断/修辞目的、A-Level 结构化大题含分步分值、AP 选择与简答；内容原创避免版权问题）+ 1 道听力音频示例题 + 1 道 KaTeX 公式示例题
+- 题型分布：单选 41 / 简答 18 / 填空 12 / 判断 7 / 写作 6 / 口语 3
+- **4 套 IAL 真题卷**（P1/P2 × 2024 Jan/June）+ 3 套示例试卷 + 6 人花名册 + 1 套蓝图 + 1 场已录分考试（答题码 ZX2026，36 条成绩）
+
+## 三、系统架构
+
+### 3.1 技术栈
+
+Flask + SQLite（后端，单文件 backend/app.py 约 2900 行、63 个路由）+ 原生 JS（前端，无框架无构建）+ 离线 KaTeX + LXGW 文楷字体。前后端分离（REST），小程序可直接复用 API。
+
+### 3.2 后端路由按模块（63 个）
+
+| 模块 | 路由 | 数量 |
 |---|---|---|
-| 认证 | /api/auth/login、/api/auth/email-code、/api/auth/email-login | 账号密码登录 + **邮箱验证码登录**（开发模式回显验证码，SMTP 走环境变量） |
-| 题库 | /api/questions…（含 trash/restore/purge/batch/check-dup） | 增删改查、回收站、批量、相似度查重 |
-| 附件 | /api/upload | 图片 5MB / 音频 20MB / PDF 20MB |
-| 组卷 | /api/papers/generate | 分层抽样（难度三带）+ 排除 + 缺口提示 + distNote |
-| 试卷 | /api/papers… | CRUD / 复制 / 定稿 / A-B 卷 |
-| 真题库 | /api/exam-papers…、/api/exam-topics | Paper 元数据（年份/考季/卷号/QP/MS）+ 按卷知识树 |
-| 刷题 | /api/questions（分页+真题维度筛选）、/api/favorites… | 20 条/页、收藏 |
-| 考试成绩 | /api/exams…、/api/online/verify·submit、/api/exams/{id}/report·export.xlsx | 答题码、自动判分（多选漏选半分）、统计、成绩单 |
-| 记录 | /api/generated-files、/api/audit | PDF 生成状态机、审计日志 |
-| 数据 | /api/backup · /api/restore | 全库 JSON 备份/恢复 |
-| 部署 | wsgi.py + Dockerfile + render.yaml | 生产 WSGI 入口（gunicorn）与 Render/HF 一键部署 |
+| 认证 | ping / login / logout / me/password / **email-code / email-login** | 6 |
+| 题库 | questions 增删改查 + trash/restore/purge/empty-trash + batch + check-dup + template/export/import | 14 |
+| 附件 | upload（图片/音频/PDF） | 1 |
+| 组卷 | papers/generate + papers CRUD + duplicate + status | 8 |
+| 真题库 | exam-papers CRUD + exam-topics | 5 |
+| 刷题 | questions 分页（真题维度）+ favorites 增删查 | 4 |
+| 考试成绩 | exams CRUD + scores + report + export.xlsx + online/verify·submit + sheet 上传 | 10 |
+| 记录 | generated-files 增查 | 2 |
+| 知识树/名单/蓝图 | knowledge CRUD + roster CRUD + blueprints CRUD | 7 |
+| 其他 | bootstrap + stats + backup/restore + audit + tags | 5 |
 
-### 3.2 前端（js/，无构建）
+### 3.3 前端文件
 
 | 文件 | 职责 |
 |---|---|
-| api.js | 数据访问层：服务端 REST 与演示 sessionStorage **双实现**，页面零感知（**新增接口必须三处同步：API / Demo / ZJ_Data**） |
-| admin.js | 工作台主控：页签切换、题库/批量/回收站、审计、备份恢复 |
-| builder.js | 组卷台双栏工作区：试题池、试卷实体、大题分区、拖拽排序、换题候选、蓝图 |
+| api.js | 数据访问层：服务端 REST 与演示 sessionStorage **双实现**，页面零感知（新增接口必须 API/Demo/ZJ_Data 三处同步） |
+| admin.js | 工作台主控（页签切换、题库、批量、回收站、审计、备份） |
+| builder.js | 组卷台双栏工作区全部逻辑 |
 | archive.js | 真题库、知识点刷题、收藏、下载记录 |
-| exams.js | 考试创建、按题录分（✓/✗ 速判）、统计报告 |
-| print.js | 学生卷/教师卷/答题卡三版本、密封线、Word 导出 |
-| micro.js | 动效与微交互层（进场编排/数字滚动/涟漪；尊重 prefers-reduced-motion）——协作者新增 |
-| common.js / mock-data.js | 公共工具与演示种子（mock 由 build_mock.py 生成） |
+| exams.js | 考试与成绩模块 |
+| print.js | 打印三版本、密封线、Word 导出 |
+| micro.js | 动效层（协作者） |
+| common.js / mock-data.js | 公共工具与演示种子 |
 
-### 3.3 视觉体系
+## 四、现在还差什么——P2 待办（全部未开始）
 
-`css/style.css` 设计令牌集中在 `:root`。当前为**文楷排印版**：LXGW 文楷屏显字体（`vendor/lxgw/`）+ 登录页手绘金线 + 印章式状态章（协作者 `c4533ea`）。页面版本号 `?v=20261001d`。
+### 4.1 错题本与做题记录（P2 首选）
+在线答题的 exam_answers 已存学生作答原文，错题本可直接基于它扩展：按考生/题目维度记录答错题目，学生端「我的错题」页，教师端按错题率排序。**数据已具备，只差前端页面与查询接口。**
 
-## 4. 数据模型与存储
+### 4.2 学习数据与正确率
+按学生、按知识点的正确率统计与趋势图。统计报告已有聚合框架（exam_report），需扩展学生维度与时间序列。
 
-核心表：`users / sessions / questions / papers（组卷卷）+ paper_items / exam_papers（真题元数据）/ knowledge_nodes（两级树，paper_scope）/ exams + exam_candidates + exam_scores + exam_answers / favorites / generated_files / subjects / roster / blueprints / audit_log / classes`
+### 4.3 微信小程序端
+前后端分离架构已满足（REST 直接复用），需要：微信登录（当前为账号密码+邮箱验证码，需接 openid 体系）、小程序 UI 五页（登录/题库/刷题/组卷/我的）。**架构预留已完成，本期未开发。**
 
-- 字段明细见 `docs/PRD.md` 第 9 章；迁移用 `ensure_schema()` 内 PRAGMA 检测 + ALTER TABLE（老库平滑升级）
-- 种子只灌空库（`seed_if_empty` 以 questions 数量判断）；改 `seed.json` 后删 `zujuan.db` 重启即重建
-- 演示种子 `js/mock-data.js` 由 `python build_mock.py` 生成，**勿手改**
+### 4.4 体验微调（P1 尾项）
+- 题目全貌弹窗与详情页的部分列表尚未支持拖拽（仅组卷工作区已支持）
+- 真题库列表暂无导出（成绩单已有导出）
+- 空状态文案可再统一
 
-## 5. 环境与账号凭据
+### 4.5 AI / OCR 录题（远期）
+CMS-Q-07 接口已预留：自动识别题号、marks、切题、Topic/Subtopic、Mark Scheme 匹配，人工审核后发布。
+
+### 4.6 更多考试局与科目（远期）
+P3/P4/FP1/S1/M1 等 Paper；CAIE / AP / IGCSE 考试体系。现有 87 题练习库可整体迁入「练习题库」板块与真题库并行。
+
+### 4.7 生产化改造（部署前必做）
+- 后端换 gunicorn（`backend/wsgi.py` 已备）+ HTTPS
+- SQLite → MySQL/PostgreSQL（免费档 SQLite 随实例重启重置）
+- 上传文件迁对象存储 + CDN（当前本地 `backend/uploads/`，**备份 JSON 不含它们**）
+- 邮箱登录配正式 SMTP；微信端接正式 AppID
+- 每日自动备份（当前手动导出 JSON）
+
+## 五、已知限制与注意事项
+
+1. Render 免费档：SQLite 随实例重启重置为种子、15 分钟无访问休眠（首次唤醒约 30 秒）——演示无影响，长期留存需付费挂盘
+2. 备份 JSON 不含上传文件——迁移环境请一并拷贝 `backend/uploads/`
+3. 后端为 Flask 开发服务器，生产需 gunicorn（wsgi.py 已备）+ HTTPS
+4. 演示模式（GitHub Pages / server.py）不含上传、Excel 导入导出、审计——页面会如实提示
+5. **版本号规矩**：改任何 js/css 必须升级 HTML 内 `?v=` 版本号（admin/index/print 三处一致），否则浏览器缓存旧文件
+6. 判分/统计双模式逻辑成对：改服务端 `exam_report` 必须同步 `js/api.js` 的 `demoExamReport`
+7. 录分与在线交卷均为「整份覆盖」语义（未填 = 清除原值）
+8. GitHub 偶发 TLS 中断：push 失败等待重试（历史 1–4 次内恢复），非代码问题
+
+## 六、环境与账号凭据
 
 | 项 | 值 |
 |---|---|
-| 教师账号 | `teacher`（教学总监，admin）/ `wangli`（教研组长）· 初始密码均为 `zx123456` |
-| 学生在线答题码 | `ZX2026`（种子考试「雅思阅读周测」已开启在线作答；考生：陈思远/郎博文/林晓雅/周子墨/吴悦然/郑好） |
-| 邮箱登录 | 开发模式验证码直接回显在响应中（便于联调）；生产配置 SMTP 环境变量后走真实发信 |
+| 教师账号 | `teacher`（教学总监，admin 全权限）/ `wangli`（教研组长）· 初始密码均为 `zx123456` |
+| 学生在线答题码 | `ZX2026`（种子考试「雅思阅读周测」，考生：陈思远/郎博文/林晓雅/周子墨/吴悦然/郑好） |
 | 本地启动 | `python backend/app.py` → http://localhost:8687 |
 | 演示启动 | `python server.py`（纯静态，无依赖） |
-| 数据文件 | `backend/zujuan.db`（删即重置） |
-| 环境要求 | Python 3.11+；`pip install -r backend/requirements.txt`（flask、openpyxl、gunicorn[部署]） |
+| 一键启动 | 双击 `一键启动-组卷系统.bat` |
+| 数据文件 | `backend/zujuan.db`（删即重置，自动从 seed.json 重建 87 题） |
+| 邮箱登录 | 开发模式验证码回显；生产配 SMTP 环境变量 |
+| 依赖 | Python 3.11+；`pip install -r backend/requirements.txt`；KaTeX 与文楷字体已离线内置 |
 
-## 6. 运维手册
+## 七、运维手册
 
-### 6.1 启动 / 停止 / 重置
-
+### 7.1 启动 / 停止 / 重置
 ```bash
-python backend/app.py     # 启动（Ctrl+C 停止）
-# 重置数据：停止后删除 backend/zujuan.db，再启动（自动从 seed.json 重建）
+python backend/app.py      # 启动（Ctrl+C 停止）
+# 重置数据：停止后删除 backend/zujuan.db 再启动（自动重建 87 题种子）
 ```
 
-### 6.2 备份 / 恢复
+### 7.2 备份 / 恢复
+登录 →「审计」页签 → 数据管理 → 导出备份（全库 JSON）/ 从备份恢复（覆盖数据，账号不动）。**备份不含 uploads/ 上传文件**。
 
-- 备份：登录 →「审计」页签 → 数据管理 → 导出备份（全库 JSON）
-- 恢复：同页「从备份恢复」上传 JSON（账号与会话不受影响）
-- ⚠️ 备份 JSON **不含** `backend/uploads/` 内的上传文件——迁移环境请一并拷贝
-
-### 6.3 三种部署方式
-
+### 7.3 部署
 | 方式 | 入口 | 说明 |
 |---|---|---|
-| 本地 | `python backend/app.py` | 开发与日常使用（8687 端口） |
-| Render（免费） | render.yaml + DEPLOY.md 指南 | 同一服务托管页面+API，公网可访问；免费档 SQLite 随重启重置、15 分钟休眠 |
-| Docker | `Dockerfile` + `backend/wsgi.py` | gunicorn 生产入口 |
+| 本地 | python backend/app.py | 日常使用（8687） |
+| Render 免费 | render.yaml + DEPLOY.md | 公网完整系统；SQLite 随重启重置 |
+| Docker | Dockerfile + backend/wsgi.py | gunicorn 生产入口 |
+| GitHub Pages 演示 | paper-builder-demo 仓 | 纯静态演示；更新：复制静态文件进 github-pages-repo/ → push |
 
-### 6.4 演示站（GitHub Pages）
+## 八、测试与验收
 
-- https://serennity007.github.io/paper-builder-demo/ ← 仓库 paper-builder-demo（纯静态演示模式）
-- 更新流程：改静态文件 → 复制 index/admin/answer/print.html 与 css/js/vendor/assets 进 `github-pages-repo/` → commit → push → 1–2 分钟自动发布（CDN 缓存约 10 分钟，验证需强刷）
-
-## 7. 测试体系与验收
-
-| 测试 | 覆盖 | 跑法 |
+| 测试 | 覆盖 | 结果 |
 |---|---|---|
-| smoke_v2.py（35 项） | 题库/批量/回收站/查重/上传/蓝图/名单/考试/备份 | 重置库后 `python smoke_v2.py` |
-| smoke_v3.py（20 项） | 在线答题全流程/知识树/共享权限/成绩单 | 同上 |
-| audit_zujuan.py（22 项） | 组卷专项（生成算法/存卷/蓝图/平行卷/Excel） | 同上 |
-| smoke_email.py | 邮箱验证码登录（协作者新增） | 需后端运行；60s 发码限频自动等待 |
+| smoke_v2.py（35 项） | 题库/批量/回收站/查重/上传/蓝图/名单/考试/备份 | ✅ 全过 |
+| smoke_v3.py（20 项） | 在线答题全流程/知识树/权限/成绩单 | ✅ 全过 |
+| audit_zujuan.py（22 项） | 组卷专项（算法/存卷/蓝图/平行卷/Excel） | ✅ 全过 |
+| smoke_email.py | 邮箱验证码登录（协作者新增） | ✅ |
 
-**规矩**：推送前必须重置库跑三套（当前基准 35+20+22 全绿）+ `node --check` 改动的 js + 浏览器过主流程；判分/统计逻辑改一处必须同步另一处（服务端 `exam_report` ⇆ 演示 `demoExamReport`）。
+**跑法**：重置库（删 zujuan.db 重启）→ `python smoke_v2.py` 等。**MVP 验收 AC-01～08 全部达成**（找题/看答案/收藏/组卷/QP PDF/MS PDF/管理端发布/异常态），验收路径见 PRD 第 14 章。
 
-## 8. 已知限制与注意事项
+## 九、目录结构与中间文件清理记录
 
-1. 备份 JSON 不含 `backend/uploads/` 上传文件，迁移需一并拷贝
-2. 后端为 Flask 开发服务器，生产需 gunicorn（wsgi.py 已备）+ HTTPS
-3. Render 免费档 SQLite 随重启重置、15 分钟休眠（DEPLOY.md 有说明）
-4. 演示模式不含上传/Excel 导入/审计——页面如实提示，属预期
-5. HTML 引用的静态资源版本号（当前 `v=20261001d`）**改 js/css 必须升级**，否则浏览器缓存旧文件
-6. GitHub 偶发 TLS 中断：push 失败等待重试（历史 1–4 次内恢复）
-7. 删除题目 = 软删除进回收站；`paper_items` 级联移除并在审计注明
-8. 录分/在线交卷均为「整份覆盖」语义（未填 = 清除原值）
+### 9.1 当前目录（已清理，均为交付必需项）
 
-## 9. P2 待办路线（尚未开始）
+```
+06-组卷系统/
+├─ backend/          app.py + seed.json + requirements.txt + wsgi.py + zujuan.db（干净种子）+ uploads/（已清空）
+├─ css/ js/          全部前端（js 8 个文件 + micro.js 动效层）
+├─ docs/             PRD / HANDBOOK / USER-GUIDE / HANDOVER 四份文档
+├─ vendor/           katex + lxgw 离线字体
+├─ assets/           示例听力音频
+├─ index / admin / answer / print.html
+├─ server.py + 一键启动.bat
+├─ smoke_v2 / smoke_v3 / audit_zujuan / smoke_email.py   # 回归测试（交付物）
+├─ build_mock.py     # 演示种子生成器（交付物）
+├─ DEPLOY.md / Dockerfile / render.yaml                   # 部署套件（协作者贡献）
+└─ github-pages-repo/  # 演示站独立仓库（推 GitHub Pages 用）
+```
 
-| 待办 | 说明 | 建议 |
-|---|---|---|
-| 错题本与做题记录 | exam_answers 数据可扩展 | P2 首选 |
-| 学习数据/正确率 | 按学生/知识点维度统计 | P2 |
-| 微信小程序端 | REST 直接复用，前后端分离已满足 | P2 |
-| 拖拽排序增强、搜索完善 | P1 尾项微调 | 随手 |
-| AI/OCR 录题 | CMS-Q-07 接口已预留 | 远期 |
-| 更多 Paper / 考试局 | P3/P4/FP1/S1/M1；CAIE/AP/IGCSE | 远期（87 题练习库可迁入"练习题库"板块） |
+### 9.2 本次已删除的中间文件（无需再清）
 
-## 10. 文档索引
+| 文件 | 原因 |
+|---|---|
+| add_exam_structure.py | 一次性种子注入脚本，效果已固化进 seed.json（仓库已删并推送） |
+| inject_routes.py / inject_api.py / wire_v4.py / polish_css.py / patch_ui.py / probe_q.py / probe2.py | 开发期代码注入与探针脚本，均已执行完毕 |
+| backend/uploads/ 下 19 张测试上传图片 | 冒烟测试产物 |
+| __pycache__/（根与 backend） | Python 字节码缓存 |
+| backend/server.log、push_guide.log、push_ho.log 等日志 | 运行日志 |
+| backend/zujuan.db（旧） | 被冒烟测试污染（audit_log 144 条测试记录），已重置为干净种子 |
+
+### 9.3 保留说明
+
+`smoke_*.py`、`audit_zujuan.py`、`build_mock.py` 是 HANDBOOK 第 9 节明确要求的回归测试与种子生成器，属交付物非过程文件。
+
+## 十、文档索引
 
 | 文档 | 面向 | 内容 |
 |---|---|---|
-| docs/HANDBOOK.md | 开发协作者 | 12 章：代码结构、双模式架构、API 清单（注意：协作者新增邮箱登录两接口后总数 63 个）、数据模型、前端约定 7 条、测试、部署、协作规范、踩坑 8 条 |
+| docs/HANDBOOK.md | 开发协作者 | 12 章：代码结构、双模式架构、API 清单、数据模型、前端约定 7 条、测试、部署、协作规范、踩坑 8 条 |
 | docs/PRD.md | 产品规划 | 16 章：定位/角色/MVP 边界/信息架构/功能需求/数据模型/API/业务规则/迭代计划/验收标准 |
 | docs/USER-GUIDE.md | 教师/学生/管理员 | 9 章：登录、题库、真题库、组卷、考试与成绩、打印、学生答题、备份、FAQ |
-| docs/HANDOVER.md | 交接 | 本文档 |
-| DEPLOY.md | 部署 | Render 免费部署指南（协作者编写） |
+| docs/HANDOVER.md | 交接（仓库版） | 与本文档同源精简版 |
+| DEPLOY.md | 部署 | Render 免费部署指南 |
 
-## 11. 交接确认清单（接收方逐项签收）
+## 十一、交接确认清单（接收方逐项签收）
 
 - [ ] 克隆仓库：`git clone https://github.com/Serennity007/paper-builder-system.git`
 - [ ] `pip install -r backend/requirements.txt` 后 `python backend/app.py`，8687 可访问
 - [ ] teacher 账号过一遍八大页签（组卷台/真题库/刷题/题库/试卷库/总览/考试/审计）
-- [ ] 删除 `backend/zujuan.db` 重置后，三套冒烟全绿（35+20+22）
-- [ ] 阅读 HANDBOOK 第 4 节（双模式）、第 8 节（前端约定 7 条）、第 12 节（踩坑）
 - [ ] 学生侧验证：`answer.html` 用答题码 `ZX2026` + 考生姓名在线作答并交卷
-- [ ] 阅读 DEPLOY.md，确认 P2 待办分工与排期
+- [ ] 删除 `backend/zujuan.db` 重置后，三套冒烟全绿（35+20+22）
+- [ ] 阅读 HANDBOOK 第 4 节（双模式）、第 8 节（前端约定 7 条）、第 12 节（踩坑 8 条）
+- [ ] 阅读 DEPLOY.md，确认 P2 待办（第 4 节）分工与排期
